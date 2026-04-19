@@ -10,10 +10,11 @@ type Plot = {
 
 type Props = {
   plots: Plot[]
+  selectedPlotId: string | null
   onSelectPlot: (plot: Plot) => void
 }
 
-export default function PlotList({ plots, onSelectPlot }: Props) {
+export default function PlotList({ plots, selectedPlotId, onSelectPlot }: Props) {
   if (plots.length === 0) {
     return <p>No plot data loaded yet.</p>
   }
@@ -23,28 +24,29 @@ export default function PlotList({ plots, onSelectPlot }: Props) {
       <h3>Sample Plot Data</h3>
       <p>Number of records: {plots.length}</p>
 
-      {plots.slice(0, 5).map((plot) => (
-        <div
-          key={plot.plot_id}
-          onClick={() => onSelectPlot(plot)}
-          style={{
-            border: '1px solid #ddd',
-            borderRadius: '10px',
-            padding: '12px',
-            marginBottom: '12px',
-            background: '#fafafa',
-            cursor: 'pointer',
-          }}
-        >
-          <p><strong>Plot ID:</strong> {plot.plot_id}</p>
-          <p><strong>Owner:</strong> {plot.owner_name}</p>
-          <p><strong>Email:</strong> {plot.owner_email}</p>
-          <p><strong>Donate:</strong> {plot.willing_to_donate ? 'Yes' : 'No'}</p>
-          <p><strong>Drop-off:</strong> {plot.willing_dropoff ? 'Yes' : 'No'}</p>
-          <p><strong>Max travel (km):</strong> {plot.max_travel_km ?? 'N/A'}</p>
-          <p><strong>Max travel (min):</strong> {plot.max_travel_min ?? 'N/A'}</p>
-        </div>
-      ))}
+      {plots.slice(0, 5).map((plot) => {
+        const isSelected = plot.plot_id === selectedPlotId
+
+        return (
+          <div
+            key={plot.plot_id}
+            onClick={() => onSelectPlot(plot)}
+            style={{
+              border: isSelected ? '2px solid #1f4d45' : '1px solid #ddd',
+              borderRadius: '10px',
+              padding: '12px',
+              marginBottom: '12px',
+              background: isSelected ? '#eef6f4' : '#fafafa',
+              cursor: 'pointer',
+            }}
+          >
+            <p><strong>Plot ID:</strong> {plot.plot_id}</p>
+            <p><strong>Owner:</strong> {plot.owner_name}</p>
+            <p><strong>Donate:</strong> {plot.willing_to_donate ? 'Yes' : 'No'}</p>
+            <p><strong>Drop-off:</strong> {plot.willing_dropoff ? 'Yes' : 'No'}</p>
+          </div>
+        )
+      })}
     </div>
   )
 }

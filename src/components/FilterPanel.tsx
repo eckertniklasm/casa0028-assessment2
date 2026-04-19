@@ -1,8 +1,16 @@
 type Props = {
   mode: string
+  cropOptions: string[]
+  selectedCrop: string
+  onCropChange: (value: string) => void
 }
 
-export default function FilterPanel({ mode }: Props) {
+export default function FilterPanel({
+  mode,
+  cropOptions,
+  selectedCrop,
+  onCropChange,
+}: Props) {
   return (
     <div
       style={{
@@ -42,12 +50,19 @@ export default function FilterPanel({ mode }: Props) {
       {mode === 'food' && (
         <>
           <p><strong>Mode:</strong> food</p>
+
           <label>Crop type</label>
-          <select style={{ display: 'block', marginTop: '8px', width: '100%' }}>
-            <option>All</option>
-            <option>Tomato</option>
-            <option>Courgette</option>
-            <option>Potato</option>
+          <select
+            value={selectedCrop}
+            onChange={(e) => onCropChange(e.target.value)}
+            style={{ display: 'block', marginTop: '8px', width: '100%' }}
+          >
+            <option value="All">All</option>
+            {cropOptions.map((crop) => (
+              <option key={crop} value={crop}>
+                {crop}
+              </option>
+            ))}
           </select>
 
           <label style={{ display: 'block', marginTop: '16px' }}>Donation type</label>

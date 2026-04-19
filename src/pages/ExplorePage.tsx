@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ModeSwitcher from '../components/ModeSwitcher'
 import FilterPanel from '../components/FilterPanel'
 import DetailPanel from '../components/DetailPanel'
@@ -14,9 +14,14 @@ type Plot = {
   max_travel_min: number | null
 }
 
+type Crop = {
+  crop: string
+  seasons: string
+}
+
 type CropRecord = {
   plot_id: string
-  crops: any[]
+  crops: Crop[]
 }
 
 export default function ExplorePage() {
@@ -25,6 +30,7 @@ export default function ExplorePage() {
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
   const [loading, setLoading] = useState(true)
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
+  const [selectedCrop, setSelectedCrop] = useState('All')
 
   useEffect(() => {
     fetch('/data/plots_core.json')
@@ -52,10 +58,51 @@ export default function ExplorePage() {
       })
   }, [])
 
+  const cropOptions = useMemo(() => {
+    const allCrops = cropsData.flatMap((item) => item.crops.map((crop) => crop.crop))
+    return Array.from(new Set(allCrops)).sort()
+  }, [cropsData])
+
+  const filteredPlots = useMemo(() => {
+    if (mode !== 'food') return plots
+    if (selectedCrop === 'All') return plots
+
+    const matchingPlotIds = new Set(
+      cropsData
+        .filter((item) =>
+          item.crops.some(
+            (crop) => crop.crop.toLowerCase() === selectedCrop.toLowerCase()
+          )
+        )
+        .map((item) => item.plot_id)
+    )
+
+    return plots.filter((plot) => matchingPlotIds.has(plot.plot_id))
+  }, [mode, selectedCrop, cropsData, plots])
+
   const selectedCrops =
     selectedPlot
       ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
       : null
+
+  useEffect(() => {
+    if (!selectedPlot && filteredPlots.length > 0) {
+      setSelectedPlot(filteredPlots[0])
+      return
+    }
+
+    if (
+      selectedPlot &&
+      filteredPlots.length > 0 &&
+      !filteredPlots.some((plot) => plot.plot_id === selectedPlot.plot_id)
+    ) {
+      setSelectedPlot(filteredPlots[0])
+    }
+
+    if (filteredPlots.length === 0) {
+      setSelectedPlot(null)
+    }
+  }, [filteredPlots, selectedPlot])
 
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
@@ -72,7 +119,12 @@ export default function ExplorePage() {
           marginTop: '24px',
         }}
       >
-        <FilterPanel mode={mode} />
+        <FilterPanel
+          mode={mode}
+          cropOptions={cropOptions}
+          selectedCrop={selectedCrop}
+          onCropChange={setSelectedCrop}
+        />
 
         <div
           style={{
@@ -87,11 +139,16 @@ export default function ExplorePage() {
           <p>The interactive map will go here.</p>
           <p><strong>Current mode:</strong> {mode}</p>
           <p><strong>Crops records loaded:</strong> {cropsData.length}</p>
+          <p><strong>Selected crop:</strong> {selectedCrop}</p>
 
           {loading ? (
             <p>Loading plot data...</p>
           ) : (
-            <PlotList plots={plots} onSelectPlot={setSelectedPlot} />
+            <PlotList
+              plots={filteredPlots}
+              selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
+              onSelectPlot={setSelectedPlot}
+            />
           )}
         </div>
 
