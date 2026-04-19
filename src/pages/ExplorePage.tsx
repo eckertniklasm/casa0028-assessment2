@@ -31,6 +31,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true)
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
   const [selectedCrop, setSelectedCrop] = useState('All')
+  const [selectedDonationType, setSelectedDonationType] = useState('All')
 
   useEffect(() => {
     fetch('/data/plots_core.json')
@@ -59,26 +60,41 @@ export default function ExplorePage() {
   }, [])
 
   const cropOptions = useMemo(() => {
-    const allCrops = cropsData.flatMap((item) => item.crops.map((crop) => crop.crop))
+    const allCrops = cropsData.flatMap((item) =>
+      item.crops.map((crop) => crop.crop)
+    )
     return Array.from(new Set(allCrops)).sort()
   }, [cropsData])
 
   const filteredPlots = useMemo(() => {
-    if (mode !== 'food') return plots
-    if (selectedCrop === 'All') return plots
+    let result = plots
 
-    const matchingPlotIds = new Set(
-      cropsData
-        .filter((item) =>
-          item.crops.some(
-            (crop) => crop.crop.toLowerCase() === selectedCrop.toLowerCase()
-          )
+    if (mode === 'food') {
+      if (selectedCrop !== 'All') {
+        const matchingPlotIds = new Set(
+          cropsData
+            .filter((item) =>
+              item.crops.some(
+                (crop) => crop.crop.toLowerCase() === selectedCrop.toLowerCase()
+              )
+            )
+            .map((item) => item.plot_id)
         )
-        .map((item) => item.plot_id)
-    )
 
-    return plots.filter((plot) => matchingPlotIds.has(plot.plot_id))
-  }, [mode, selectedCrop, cropsData, plots])
+        result = result.filter((plot) => matchingPlotIds.has(plot.plot_id))
+      }
+
+      if (selectedDonationType === 'dropoff') {
+        result = result.filter((plot) => plot.willing_dropoff === true)
+      }
+
+      if (selectedDonationType === 'collection') {
+        result = result.filter((plot) => plot.willing_dropoff === false)
+      }
+    }
+
+    return result
+  }, [mode, selectedCrop, selectedDonationType, cropsData, plots])
 
   const selectedCrops =
     selectedPlot
@@ -124,6 +140,8 @@ export default function ExplorePage() {
           cropOptions={cropOptions}
           selectedCrop={selectedCrop}
           onCropChange={setSelectedCrop}
+          selectedDonationType={selectedDonationType}
+          onDonationTypeChange={setSelectedDonationType}
         />
 
         <div
@@ -140,6 +158,7 @@ export default function ExplorePage() {
           <p><strong>Current mode:</strong> {mode}</p>
           <p><strong>Crops records loaded:</strong> {cropsData.length}</p>
           <p><strong>Selected crop:</strong> {selectedCrop}</p>
+          <p><strong>Donation filter:</strong> {selectedDonationType}</p>
 
           {loading ? (
             <p>Loading plot data...</p>

@@ -3,6 +3,8 @@ type Props = {
   cropOptions: string[]
   selectedCrop: string
   onCropChange: (value: string) => void
+  selectedDonationType: string
+  onDonationTypeChange: (value: string) => void
 }
 
 export default function FilterPanel({
@@ -10,6 +12,8 @@ export default function FilterPanel({
   cropOptions,
   selectedCrop,
   onCropChange,
+  selectedDonationType,
+  onDonationTypeChange,
 }: Props) {
   return (
     <div
@@ -66,10 +70,14 @@ export default function FilterPanel({
           </select>
 
           <label style={{ display: 'block', marginTop: '16px' }}>Donation type</label>
-          <select style={{ display: 'block', marginTop: '8px', width: '100%' }}>
-            <option>All</option>
-            <option>Drop-off available</option>
-            <option>Collection only</option>
+          <select
+            value={selectedDonationType}
+            onChange={(e) => onDonationTypeChange(e.target.value)}
+            style={{ display: 'block', marginTop: '8px', width: '100%' }}
+          >
+            <option value="All">All</option>
+            <option value="dropoff">Drop-off available</option>
+            <option value="collection">Collection only</option>
           </select>
         </>
       )}
