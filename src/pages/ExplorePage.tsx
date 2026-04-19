@@ -17,6 +17,7 @@ type Plot = {
 export default function ExplorePage() {
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
+  const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function ExplorePage() {
       .then((res) => res.json())
       .then((data) => {
         setPlots(data)
+        setSelectedPlot(data.length > 0 ? data[0] : null)
         setLoading(false)
       })
       .catch((err) => {
@@ -31,8 +33,6 @@ export default function ExplorePage() {
         setLoading(false)
       })
   }, [])
-
-  const selectedPlot = plots.length > 0 ? plots[0] : null
 
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
@@ -64,7 +64,11 @@ export default function ExplorePage() {
           <p>The interactive map will go here.</p>
           <p><strong>Current mode:</strong> {mode}</p>
 
-          {loading ? <p>Loading plot data...</p> : <PlotList plots={plots} />}
+          {loading ? (
+            <p>Loading plot data...</p>
+          ) : (
+            <PlotList plots={plots} onSelectPlot={setSelectedPlot} />
+          )}
         </div>
 
         <DetailPanel mode={mode} selectedPlot={selectedPlot} />

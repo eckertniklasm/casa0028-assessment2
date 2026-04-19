@@ -10,9 +10,10 @@ type Plot = {
 
 type Props = {
   plots: Plot[]
+  onSelectPlot: (plot: Plot) => void
 }
 
-export default function PlotList({ plots }: Props) {
+export default function PlotList({ plots, onSelectPlot }: Props) {
   if (plots.length === 0) {
     return <p>No plot data loaded yet.</p>
   }
@@ -25,12 +26,14 @@ export default function PlotList({ plots }: Props) {
       {plots.slice(0, 5).map((plot) => (
         <div
           key={plot.plot_id}
+          onClick={() => onSelectPlot(plot)}
           style={{
             border: '1px solid #ddd',
             borderRadius: '10px',
             padding: '12px',
             marginBottom: '12px',
             background: '#fafafa',
+            cursor: 'pointer',
           }}
         >
           <p><strong>Plot ID:</strong> {plot.plot_id}</p>
