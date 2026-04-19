@@ -32,6 +32,8 @@ export default function ExplorePage() {
       })
   }, [])
 
+  const selectedPlot = plots.length > 0 ? plots[0] : null
+
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
       <h1>Explore</h1>
@@ -65,7 +67,7 @@ export default function ExplorePage() {
           {loading ? <p>Loading plot data...</p> : <PlotList plots={plots} />}
         </div>
 
-        <DetailPanel mode={mode} />
+        <DetailPanel mode={mode} selectedPlot={selectedPlot} />
       </div>
     </div>
   )
