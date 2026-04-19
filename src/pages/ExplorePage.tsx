@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import ModeSwitcher from '../components/ModeSwitcher'
+import FilterPanel from '../components/FilterPanel'
+import DetailPanel from '../components/DetailPanel'
 
 export default function ExplorePage() {
   const [mode, setMode] = useState('food')
@@ -19,18 +21,7 @@ export default function ExplorePage() {
           marginTop: '24px',
         }}
       >
-        <div
-          style={{
-            background: 'white',
-            padding: '16px',
-            borderRadius: '12px',
-            border: '1px solid #ddd',
-            minHeight: '420px',
-          }}
-        >
-          <h3>Filters</h3>
-          <p><strong>Current mode:</strong> {mode}</p>
-        </div>
+        <FilterPanel mode={mode} />
 
         <div
           style={{
@@ -46,19 +37,7 @@ export default function ExplorePage() {
           <p><strong>Current mode:</strong> {mode}</p>
         </div>
 
-        <div
-          style={{
-            background: 'white',
-            padding: '16px',
-            borderRadius: '12px',
-            border: '1px solid #ddd',
-            minHeight: '420px',
-          }}
-        >
-          <h3>Detail Panel</h3>
-          <p>Selected plot details will appear here.</p>
-          <p><strong>Current mode:</strong> {mode}</p>
-        </div>
+        <DetailPanel mode={mode} />
       </div>
     </div>
   )
