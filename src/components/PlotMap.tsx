@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
+import proj4 from 'proj4'
 import 'leaflet/dist/leaflet.css'
 
 type Plot = {
@@ -15,12 +16,12 @@ type Plot = {
 type GeoJsonFeature = {
   type: string
   properties: {
-    plot_id?: string
+    allotment_id?: string | number
     [key: string]: any
   }
   geometry: {
     type: string
-    coordinates: any
+    coordinates: [number, number]
   }
 }
 
@@ -35,10 +36,19 @@ type Props = {
   onSelectPlot: (plot: Plot) => void
 }
 
+// British National Grid -> WGS84
+const EPSG27700 =
+  '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 ' +
+  '+x_0=400000 +y_0=-100000 +ellps=airy ' +
+  '+towgs84=446.448,-125.157,542.06,0.1502,0.247,0.8421,-20.4894 ' +
+  '+units=m +no_defs'
+
+const WGS84 = 'EPSG:4326'
+
 export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) {
   const mapRef = useRef<HTMLDivElement | null>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
-  const geoJsonLayerRef = useRef<L.GeoJSON | null>(null)
+  const layerGroupRef = useRef<L.LayerGroup | null>(null)
 
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return
@@ -48,58 +58,72 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
 
     leafletMapRef.current = map
+    layerGroupRef.current = L.layerGroup().addTo(map)
 
     return () => {
       map.remove()
       leafletMapRef.current = null
+      layerGroupRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    if (!leafletMapRef.current) return
+    if (!leafletMapRef.current || !layerGroupRef.current) return
 
     const map = leafletMapRef.current
-    const plotMap = new Map(plots.map((plot) => [plot.plot_id, plot]))
+    const layerGroup = layerGroupRef.current
+    layerGroup.clearLayers()
 
     fetch('/data/plots_points.geojson')
       .then((res) => res.json())
       .then((geoData: GeoJsonData) => {
-        if (geoJsonLayerRef.current) {
-          geoJsonLayerRef.current.remove()
-        }
+        const bounds: L.LatLngExpression[] = []
 
-        const geoJsonLayer = L.geoJSON(geoData as any, {
-          pointToLayer: (feature, latlng) => {
-            const plotId = feature?.properties?.plot_id
-            const isSelected = plotId === selectedPlotId
+        geoData.features.forEach((feature) => {
+          const allotmentIdRaw = feature.properties?.allotment_id
+          const allotmentId =
+            allotmentIdRaw !== undefined ? String(allotmentIdRaw) : undefined
 
-            return L.circleMarker(latlng, {
-              radius: isSelected ? 8 : 6,
-              fillColor: isSelected ? '#1f4d45' : '#2f855a',
-              color: '#ffffff',
-              weight: 1,
-              opacity: 1,
-              fillOpacity: 0.9,
-            })
-          },
-          onEachFeature: (feature, layer) => {
-            const plotId = feature?.properties?.plot_id
-            const matchedPlot = plotId ? plotMap.get(plotId) : undefined
+          if (!allotmentId) return
 
-            if (matchedPlot) {
-              layer.on('click', () => {
-                onSelectPlot(matchedPlot)
-              })
+          const matchedPlot = plots.find((plot) =>
+            plot.plot_id.startsWith(`${allotmentId}_`)
+          )
 
-              layer.bindPopup(
-                `<strong>${matchedPlot.owner_name}</strong><br/>Plot ID: ${matchedPlot.plot_id}`
-              )
-            }
-          },
+          // Only render points that match the current filtered plots
+          if (!matchedPlot) return
+
+          const [east, north] = feature.geometry.coordinates
+          const [lng, lat] = proj4(EPSG27700, WGS84, [east, north])
+
+          const isSelected =
+            selectedPlotId !== null &&
+            selectedPlotId.startsWith(`${allotmentId}_`)
+
+          const marker = L.circleMarker([lat, lng], {
+            radius: isSelected ? 10 : 7,
+            fillColor: isSelected ? '#d62828' : '#ff7f11',
+            color: '#000000',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9,
+          })
+
+          marker.on('click', () => {
+            onSelectPlot(matchedPlot)
+          })
+
+          marker.bindPopup(
+            `<strong>${matchedPlot.owner_name}</strong><br/>Plot ID: ${matchedPlot.plot_id}<br/>Allotment ID: ${allotmentId}`
+          )
+
+          marker.addTo(layerGroup)
+          bounds.push([lat, lng])
         })
 
-        geoJsonLayer.addTo(map)
-        geoJsonLayerRef.current = geoJsonLayer
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [20, 20] })
+        }
       })
       .catch((err) => {
         console.error('Failed to load plot points geojson:', err)

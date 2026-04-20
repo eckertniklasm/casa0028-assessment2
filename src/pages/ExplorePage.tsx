@@ -203,25 +203,25 @@ export default function ExplorePage() {
     plots,
   ])
 
-  const selectedCrops =
-    selectedPlot
-      ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
-      : null
+  const mapPlots = useMemo(() => {
+    return filteredPlots.slice(0, 2000)
+  }, [filteredPlots])
 
-  const selectedAway =
-    selectedPlot
-      ? awayData.find((item) => item.plot_id === selectedPlot.plot_id) || null
-      : null
+  const selectedCrops = selectedPlot
+    ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+    : null
 
-  const selectedCollaboration =
-    selectedPlot
-      ? collaborationData.find((item) => item.plot_id === selectedPlot.plot_id) || null
-      : null
+  const selectedAway = selectedPlot
+    ? awayData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+    : null
 
-  const selectedWorkshops =
-    selectedPlot
-      ? workshopsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
-      : null
+  const selectedCollaboration = selectedPlot
+    ? collaborationData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+    : null
+
+  const selectedWorkshops = selectedPlot
+    ? workshopsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+    : null
 
   useEffect(() => {
     if (!selectedPlot && filteredPlots.length > 0) {
@@ -282,11 +282,12 @@ export default function ExplorePage() {
           <p><strong>Selected crop:</strong> {selectedCrop}</p>
           <p><strong>Donation filter:</strong> {selectedDonationType}</p>
           <p><strong>Volunteer filter:</strong> {selectedVolunteerType}</p>
+          <p><strong>Map points shown:</strong> {mapPlots.length}</p>
 
           {!loading && (
             <div style={{ marginTop: '16px' }}>
               <PlotMap
-                plots={filteredPlots}
+                plots={mapPlots}
                 selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
                 onSelectPlot={setSelectedPlot}
               />
