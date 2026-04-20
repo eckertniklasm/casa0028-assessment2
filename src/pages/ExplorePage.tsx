@@ -249,6 +249,39 @@ export default function ExplorePage() {
     }
   }, [filteredPlots, selectedPlot])
 
+  const browseTitle =
+    mode === 'food'
+      ? 'Browse food availability across London'
+      : mode === 'volunteer'
+      ? 'Browse volunteering opportunities across London'
+      : 'Browse allotment activity across London'
+
+  const browseDescription =
+    mode === 'food'
+      ? 'Use the filters to explore plots offering produce and view crop information for each location.'
+      : mode === 'volunteer'
+      ? 'Use the filters to explore away-help requests, collaboration slots, and workshops.'
+      : 'Use the filters to explore plot activity and available actions.'
+
+  const summaryItems =
+    mode === 'food'
+      ? [
+          `Crop: ${selectedCrop}`,
+          `Donation: ${selectedDonationType}`,
+          `Visible plots: ${filteredPlots.length}`,
+          `Visible allotments on map: ${visibleAllotmentCount}`,
+        ]
+      : mode === 'volunteer'
+      ? [
+          `Opportunity: ${selectedVolunteerType}`,
+          `Visible plots: ${filteredPlots.length}`,
+          `Visible allotments on map: ${visibleAllotmentCount}`,
+        ]
+      : [
+          `Visible plots: ${filteredPlots.length}`,
+          `Visible allotments on map: ${visibleAllotmentCount}`,
+        ]
+
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
       <h1>Explore</h1>
@@ -284,13 +317,33 @@ export default function ExplorePage() {
             minHeight: '420px',
           }}
         >
-          <h3>Map Area</h3>
-          <p><strong>Current mode:</strong> {mode}</p>
-          <p><strong>Selected crop:</strong> {selectedCrop}</p>
-          <p><strong>Donation filter:</strong> {selectedDonationType}</p>
-          <p><strong>Volunteer filter:</strong> {selectedVolunteerType}</p>
-          <p><strong>Visible plots:</strong> {mapPlots.length}</p>
-          <p><strong>Visible allotments on map:</strong> {visibleAllotmentCount}</p>
+          <h3>{browseTitle}</h3>
+          <p style={{ marginTop: '8px', color: '#444' }}>{browseDescription}</p>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              marginTop: '16px',
+              marginBottom: '16px',
+            }}
+          >
+            {summaryItems.map((item) => (
+              <span
+                key={item}
+                style={{
+                  background: '#f3f4f6',
+                  border: '1px solid #ddd',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '14px',
+                }}
+              >
+                {item}
+              </span>
+            ))}
+          </div>
 
           {!loading && (
             <div style={{ marginTop: '16px' }}>
@@ -305,6 +358,19 @@ export default function ExplorePage() {
           <div style={{ marginTop: '20px' }}>
             {loading ? (
               <p>Loading plot data...</p>
+            ) : filteredPlots.length === 0 ? (
+              <div
+                style={{
+                  border: '1px dashed #bbb',
+                  borderRadius: '10px',
+                  padding: '16px',
+                  background: '#fafafa',
+                }}
+              >
+                <p style={{ margin: 0 }}>
+                  No matching results were found for the current filters.
+                </p>
+              </div>
             ) : (
               <PlotList
                 plots={filteredPlots}
