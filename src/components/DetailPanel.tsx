@@ -42,12 +42,26 @@ type CollaborationRecord = {
   collaboration_slots: CollaborationSlot[]
 }
 
+type Workshop = {
+  workshop_date: string
+  start_time: string
+  end_time: string
+  description: string
+  max_attendees: number
+}
+
+type WorkshopRecord = {
+  plot_id: string
+  workshops: Workshop[]
+}
+
 type Props = {
   mode: string
   selectedPlot: Plot | null
   selectedCrops: CropRecord | null
   selectedAway: AwayRecord | null
   selectedCollaboration: CollaborationRecord | null
+  selectedWorkshops: WorkshopRecord | null
 }
 
 export default function DetailPanel({
@@ -56,6 +70,7 @@ export default function DetailPanel({
   selectedCrops,
   selectedAway,
   selectedCollaboration,
+  selectedWorkshops,
 }: Props) {
   return (
     <div
@@ -173,6 +188,42 @@ export default function DetailPanel({
                       </p>
                       <p style={{ margin: 0 }}>
                         <strong>Description:</strong> {slot.description}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div style={{ marginTop: '20px' }}>
+                <h4>Workshops</h4>
+
+                {!selectedWorkshops ||
+                !selectedWorkshops.workshops ||
+                selectedWorkshops.workshops.length === 0 ? (
+                  <p>No workshop data available for this plot.</p>
+                ) : (
+                  selectedWorkshops.workshops.map((workshop, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        marginBottom: '10px',
+                        background: '#fafafa',
+                      }}
+                    >
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Date:</strong> {workshop.workshop_date}
+                      </p>
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Time:</strong> {workshop.start_time} - {workshop.end_time}
+                      </p>
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Description:</strong> {workshop.description}
+                      </p>
+                      <p style={{ margin: 0 }}>
+                        <strong>Max attendees:</strong> {workshop.max_attendees}
                       </p>
                     </div>
                   ))

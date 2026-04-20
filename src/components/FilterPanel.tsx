@@ -54,6 +54,7 @@ export default function FilterPanel({
             <option value="All">All</option>
             <option value="away">Away help</option>
             <option value="collaboration">Collaboration</option>
+            <option value="workshop">Workshops</option>
           </select>
         </>
       )}

@@ -48,6 +48,19 @@ type CollaborationRecord = {
   collaboration_slots: CollaborationSlot[]
 }
 
+type Workshop = {
+  workshop_date: string
+  start_time: string
+  end_time: string
+  description: string
+  max_attendees: number
+}
+
+type WorkshopRecord = {
+  plot_id: string
+  workshops: Workshop[]
+}
+
 export default function ExplorePage() {
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
@@ -57,6 +70,7 @@ export default function ExplorePage() {
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
   const [awayData, setAwayData] = useState<AwayRecord[]>([])
   const [collaborationData, setCollaborationData] = useState<CollaborationRecord[]>([])
+  const [workshopsData, setWorkshopsData] = useState<WorkshopRecord[]>([])
 
   const [selectedCrop, setSelectedCrop] = useState('All')
   const [selectedDonationType, setSelectedDonationType] = useState('All')
@@ -109,6 +123,17 @@ export default function ExplorePage() {
       })
   }, [])
 
+  useEffect(() => {
+    fetch('/data/plots_workshops.json')
+      .then((res) => res.json())
+      .then((data) => {
+        setWorkshopsData(data)
+      })
+      .catch((err) => {
+        console.error('Failed to load workshops data:', err)
+      })
+  }, [])
+
   const cropOptions = useMemo(() => {
     const allCrops = cropsData.flatMap((item) =>
       item.crops.map((crop) => crop.crop)
@@ -155,6 +180,13 @@ export default function ExplorePage() {
         )
         result = result.filter((plot) => collaborationPlotIds.has(plot.plot_id))
       }
+
+      if (selectedVolunteerType === 'workshop') {
+        const workshopPlotIds = new Set(
+          workshopsData.map((item) => item.plot_id)
+        )
+        result = result.filter((plot) => workshopPlotIds.has(plot.plot_id))
+      }
     }
 
     return result
@@ -166,6 +198,7 @@ export default function ExplorePage() {
     cropsData,
     awayData,
     collaborationData,
+    workshopsData,
     plots,
   ])
 
@@ -182,6 +215,11 @@ export default function ExplorePage() {
   const selectedCollaboration =
     selectedPlot
       ? collaborationData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+      : null
+
+  const selectedWorkshops =
+    selectedPlot
+      ? workshopsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
       : null
 
   useEffect(() => {
@@ -262,6 +300,7 @@ export default function ExplorePage() {
           selectedCrops={selectedCrops}
           selectedAway={selectedAway}
           selectedCollaboration={selectedCollaboration}
+          selectedWorkshops={selectedWorkshops}
         />
       </div>
     </div>
