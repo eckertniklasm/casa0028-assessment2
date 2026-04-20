@@ -5,6 +5,8 @@ type Props = {
   onCropChange: (value: string) => void
   selectedDonationType: string
   onDonationTypeChange: (value: string) => void
+  selectedVolunteerType: string
+  onVolunteerTypeChange: (value: string) => void
 }
 
 export default function FilterPanel({
@@ -14,6 +16,8 @@ export default function FilterPanel({
   onCropChange,
   selectedDonationType,
   onDonationTypeChange,
+  selectedVolunteerType,
+  onVolunteerTypeChange,
 }: Props) {
   return (
     <div
@@ -42,11 +46,13 @@ export default function FilterPanel({
         <>
           <p><strong>Mode:</strong> volunteer</p>
           <label>Opportunity type</label>
-          <select style={{ display: 'block', marginTop: '8px', width: '100%' }}>
-            <option>All</option>
-            <option>Away help</option>
-            <option>Collaboration</option>
-            <option>Workshop</option>
+          <select
+            value={selectedVolunteerType}
+            onChange={(e) => onVolunteerTypeChange(e.target.value)}
+            style={{ display: 'block', marginTop: '8px', width: '100%' }}
+          >
+            <option value="All">All</option>
+            <option value="away">Away help</option>
           </select>
         </>
       )}

@@ -24,14 +24,30 @@ type CropRecord = {
   crops: Crop[]
 }
 
+type AwayPeriod = {
+  start_date: string
+  end_date: string
+  help_description: string
+  skills_needed: string
+}
+
+type AwayRecord = {
+  plot_id: string
+  away_periods: AwayPeriod[]
+}
+
 export default function ExplorePage() {
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
   const [loading, setLoading] = useState(true)
+
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
+  const [awayData, setAwayData] = useState<AwayRecord[]>([])
+
   const [selectedCrop, setSelectedCrop] = useState('All')
   const [selectedDonationType, setSelectedDonationType] = useState('All')
+  const [selectedVolunteerType, setSelectedVolunteerType] = useState('All')
 
   useEffect(() => {
     fetch('/data/plots_core.json')
@@ -51,11 +67,21 @@ export default function ExplorePage() {
     fetch('/data/plots_crops.json')
       .then((res) => res.json())
       .then((data) => {
-        console.log('CROPS DATA SAMPLE:', data[0])
         setCropsData(data)
       })
       .catch((err) => {
         console.error('Failed to load crops data:', err)
+      })
+  }, [])
+
+  useEffect(() => {
+    fetch('/data/plots_away.json')
+      .then((res) => res.json())
+      .then((data) => {
+        setAwayData(data)
+      })
+      .catch((err) => {
+        console.error('Failed to load away data:', err)
       })
   }, [])
 
@@ -93,12 +119,32 @@ export default function ExplorePage() {
       }
     }
 
+    if (mode === 'volunteer') {
+      if (selectedVolunteerType === 'away') {
+        const awayPlotIds = new Set(awayData.map((item) => item.plot_id))
+        result = result.filter((plot) => awayPlotIds.has(plot.plot_id))
+      }
+    }
+
     return result
-  }, [mode, selectedCrop, selectedDonationType, cropsData, plots])
+  }, [
+    mode,
+    selectedCrop,
+    selectedDonationType,
+    selectedVolunteerType,
+    cropsData,
+    awayData,
+    plots,
+  ])
 
   const selectedCrops =
     selectedPlot
       ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+      : null
+
+  const selectedAway =
+    selectedPlot
+      ? awayData.find((item) => item.plot_id === selectedPlot.plot_id) || null
       : null
 
   useEffect(() => {
@@ -142,6 +188,8 @@ export default function ExplorePage() {
           onCropChange={setSelectedCrop}
           selectedDonationType={selectedDonationType}
           onDonationTypeChange={setSelectedDonationType}
+          selectedVolunteerType={selectedVolunteerType}
+          onVolunteerTypeChange={setSelectedVolunteerType}
         />
 
         <div
@@ -156,9 +204,9 @@ export default function ExplorePage() {
           <h3>Map Area</h3>
           <p>The interactive map will go here.</p>
           <p><strong>Current mode:</strong> {mode}</p>
-          <p><strong>Crops records loaded:</strong> {cropsData.length}</p>
           <p><strong>Selected crop:</strong> {selectedCrop}</p>
           <p><strong>Donation filter:</strong> {selectedDonationType}</p>
+          <p><strong>Volunteer filter:</strong> {selectedVolunteerType}</p>
 
           {loading ? (
             <p>Loading plot data...</p>
@@ -175,6 +223,7 @@ export default function ExplorePage() {
           mode={mode}
           selectedPlot={selectedPlot}
           selectedCrops={selectedCrops}
+          selectedAway={selectedAway}
         />
       </div>
     </div>
