@@ -3,6 +3,7 @@ import ModeSwitcher from '../components/ModeSwitcher'
 import FilterPanel from '../components/FilterPanel'
 import DetailPanel from '../components/DetailPanel'
 import PlotList from '../components/PlotList'
+import PlotMap from '../components/PlotMap'
 
 type Plot = {
   plot_id: string
@@ -277,21 +278,32 @@ export default function ExplorePage() {
           }}
         >
           <h3>Map Area</h3>
-          <p>The interactive map will go here.</p>
           <p><strong>Current mode:</strong> {mode}</p>
           <p><strong>Selected crop:</strong> {selectedCrop}</p>
           <p><strong>Donation filter:</strong> {selectedDonationType}</p>
           <p><strong>Volunteer filter:</strong> {selectedVolunteerType}</p>
 
-          {loading ? (
-            <p>Loading plot data...</p>
-          ) : (
-            <PlotList
-              plots={filteredPlots}
-              selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
-              onSelectPlot={setSelectedPlot}
-            />
+          {!loading && (
+            <div style={{ marginTop: '16px' }}>
+              <PlotMap
+                plots={filteredPlots}
+                selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
+                onSelectPlot={setSelectedPlot}
+              />
+            </div>
           )}
+
+          <div style={{ marginTop: '20px' }}>
+            {loading ? (
+              <p>Loading plot data...</p>
+            ) : (
+              <PlotList
+                plots={filteredPlots}
+                selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
+                onSelectPlot={setSelectedPlot}
+              />
+            )}
+          </div>
         </div>
 
         <DetailPanel
