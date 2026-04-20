@@ -1,0 +1,576 @@
+```{r}
+library(sf)
+library(dplyr)
+library(stringr)
+```
+
+## Cleaning OSM dataset (UK and London)
+
+Note: Much of this code was created using Claude Code
+
+Load raw OSM dataset
+
+```{r}
+df_raw <- read_sf(here::here("OSM_Allotment_Raw.geojson"))
+```
+
+Count the % of NA values per column
+
+```{r}
+# Calculate and sort from smallest (0%) to biggest (100%)
+na_pct_sorted <- sort(colMeans(is.na(df_raw)) * 100)
+
+# View results
+print(na_pct_sorted)
+```
+
+Keep only ID and Geometry, and clean the ID column
+
+```{r}
+df <- df_raw %>%
+  select("id", "name") %>%
+  mutate(id = str_remove(id, "^.*/"))
+```
+
+Export cleaned dataset (UK)
+
+```{r}
+st_write(df, "UK_OSM_Allotment_Data.geojson", driver = "GeoJSON")
+```
+
+Filter the dataset for only London Allotments
+
+```{r}
+# Load GLA boundary
+
+gla <- st_read(here::here("GLA_boundary/London_GLA_Boundary.shp"))
+
+# match CRS
+gla <- st_transform(gla, st_crs(df))
+
+# fix geometries
+df <- st_make_valid(df)
+gla <- st_make_valid(gla)
+
+# filter only GLA allotments
+df_London <- df %>%
+  filter(st_intersects(., gla, sparse = FALSE))
+```
+
+Export London dataset
+
+```{r}
+st_write(df_London, "London_OSM_Allotment_Data.geojson", driver = "GeoJSON")
+```
+
+## Making plots from allotments
+
+The average size of plots in allotments today is between 125 m2 (for half plots) or 60-70 m2 (for quarter plots). We can use this info to generate a given number of points (plots) within an allotment. So we use an average of 90 m2 of allotment plots.
+
+### 1. Estimate plot counts per site
+
+Estimate plot counts for each allotment site. Only about 75% of the site should be allocated to plots (to allow for paths, borders and other space)
+
+```{r}
+
+  london_plots_raw <- df_London |>
+    st_transform(27700) |>                    # <-- project to metres first
+    mutate(
+      allotment_id = id,            # <-- ensure allotment_id exists
+      area_m2      = as.numeric(st_area(geometry)),
+      usable_area  = area_m2 * 0.75,
+      est_plots    = round(usable_area / 90)
+    )
+```
+
+### 2. Subdivide Each Allotment into Plot Polygons
+
+We create a regular grid over each polygon, shrink each cell (to create path gaps), then clip to the allotment boundary and drop edge slivers.
+
+First, create a function to make the plots
+
+```{r}
+library(purrr)
+
+# Create a function that will make plots
+
+make_plots <- function(polygon, plot_w = 9, plot_h = 10,
+                         gap = 2, min_area_frac = 0.5) {
+
+    cell_w <- plot_w + gap
+    cell_h <- plot_h + gap
+
+    # Grid of full cells over bounding box
+    grid <- st_make_grid(polygon, cellsize = c(cell_w, cell_h), what = "polygons")
+    grid <- st_sf(geometry = grid)
+
+    # Shrink each cell inward to leave gap around each plot
+    plots <- st_buffer(grid, dist = -(gap / 2))
+
+    # Clip to allotment boundary
+    plots <- st_intersection(plots, st_geometry(polygon))
+
+    # Drop edge slivers below minimum area threshold
+    min_area <- plot_w * plot_h * min_area_frac
+    plots    <- plots[as.numeric(st_area(plots)) >= min_area, ]
+
+    plots$allotment_id <- polygon$allotment_id
+    plots$plot_id      <- seq_len(nrow(plots))
+
+    return(plots)
+}
+
+```
+
+Then, apply the function to all of the London allotment polygons
+
+```{r}
+ london_plots <- london_plots_raw |>
+    split(london_plots_raw$id) |>
+    map(\(x) safely(make_plots)(x)$result) |>   # safely() catches errors on tiny polygons
+    compact() |>                                  # drop NULLs
+    bind_rows()
+```
+
+Check to see if it worked
+
+```{r}
+  library(tmap)
+  tmap_mode("view")   # interactive mode
+
+  tm_shape(london_plots_raw) +
+    tm_polygons(col = "lightgreen", alpha = 0.4, border.col = "darkgreen") +
+  tm_shape(london_plots) +
+    tm_polygons(col = "wheat", alpha = 0.8, border.col = "brown", lwd = 0.5)
+```
+
+Create a change plot id so that it is unique (structured 'allotment number'\_'plot number')
+
+```{r}
+london_plots <- london_plots |>
+    rename(plot_no = plot_id) |>
+    mutate(plot_id = paste0(allotment_id, "_", plot_no))
+```
+
+Export as polygons
+
+```{r}
+st_write(london_plots, here::here("Final_Data/plots_polygons.geojson"), driver = "GeoJSON")
+```
+
+## Fake Data Generation
+
+The following code was generated using Claude Code (Claude Sonnet 4.6) on 15 April 2026.
+
+```{r}
+  library(tidyverse)
+  library(sf)
+  library(lubridate)
+
+  set.seed(42)
+```
+
+#### 1. Crop reference table
+
+Harvest seasons were taken from the [RHS Crop Planner](https://www.rhs.org.uk/advice/pdfs/crop-planner.pdf) and the [RHS growth guidelines](https://www.rhs.org.uk/advice/grow-your-own/allotments/what-to-grow-on-your-allotment#:~:text=Table_title:%20Lean%20into%20what%20you%20like%20Table_content:,the%20shops:%20Potatoes%2C%20except%20early%20types%20%7C).
+
+```{r}
+ crops_ref <- tribble(
+    ~crop,                ~seasons,
+    "bean (broad)",       "spring, summer",
+    "bean (French)",      "summer, autumn",
+    "bean (runner)",      "summer, autumn",
+    "beetroot",           "summer, autumn",
+    "broccoli",           "summer, autumn, winter",
+    "Brussels sprouts",   "autumn, winter",
+    "cabbage (spring)",   "summer",
+    "cabbage (summer)",   "summer, autumn",
+    "cabbage (winter)",   "autumn, winter",
+    "carrot",             "summer, autumn, winter",
+    "cauliflower",        "summer, autumn, winter",
+    "celeriac",           "autumn, winter",
+    "celery",             "summer, autumn",
+    "chard",              "summer, autumn, winter",
+    "courgette",          "summer, autumn",
+    "garlic",             "spring, summer",
+    "kale",               "summer, autumn, winter",
+    "leek",               "autumn, winter",
+    "lettuce",            "spring, summer",
+    "marrow",             "summer, autumn",
+    "onion",              "summer, autumn",
+    "parsnip",            "autumn, winter",
+    "pea",                "spring, summer",
+    "potato",             "summer",
+    "pumpkin",            "autumn",
+    "radish",             "spring, summer",
+    "rhubarb",            "spring, summer",
+    "shallot",            "summer, autumn",
+    "spinach",            "spring, summer, autumn, winter",
+    "spring onion",       "spring, summer, autumn",
+    "squash",             "autumn",
+    "swede",              "autumn, winter",
+    "sweet corn",         "summer, autumn",
+    "tomato",             "summer, autumn"
+  )
+```
+
+#### 2. Fake name pools
+
+First names
+
+```{r}
+first_names <- c(
+    "James", "Oliver", "Harry", "George", "Noah", "Jack", "Charlie", "Jacob",
+    "Alfie", "Freddie", "Olivia", "Emma", "Amelia", "Isla", "Ava", "Emily",
+    "Isabella", "Mia", "Poppy", "Ella", "Sophie", "Grace", "Fatima", "Aisha",
+    "Priya", "Ling", "Mei", "Ananya", "Sara", "Mohammed", "Ali", "Hassan",
+    "Yusuf", "Ahmed", "Raj", "Arjun", "Vikram", "Niall", "Siobhan", "Caitlin",
+    "Dylan", "Liam", "Ethan", "Lucas", "Logan", "Zoe", "Chloe", "Hannah",
+    "Lily", "Charlotte", "Freya", "Rosie", "Daisy", "Leo", "Theo", "Finn"
+  )
+```
+
+Last names
+
+```{r}
+last_names <- c(
+    "Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson",
+    "Thomas", "Roberts", "Johnson", "Lewis", "Walker", "Robinson", "Wood",
+    "Thompson", "White", "Watson", "Jackson", "Wright", "Green", "Harris",
+    "Martin", "Clarke", "Hall", "Ahmed", "Khan", "Patel", "Singh", "Ali",
+    "Sharma", "Gupta", "Hussain", "Rahman", "Chen", "Wang", "Li", "Murphy",
+    "Kelly", "Walsh", "Sullivan", "Ryan", "Nguyen", "Park", "Kim", "Okafor"
+  )
+```
+
+#### 3. Description banks
+
+Away description
+
+```{r}
+away_descriptions <- c(
+    "Watering and general maintenance needed",
+    "Runner beans ready to harvest – please water daily",
+    "Full plot care required: watering, weeding and harvesting",
+    "Just need someone to water twice a week",
+    "Courgettes and tomatoes will need harvesting, daily watering essential",
+    "Plot needs weeding and watering throughout",
+    "Fruit and veg ready to harvest – general upkeep needed",
+    "General upkeep: water, weed and harvest anything that is ready"
+  )
+```
+
+Away skills
+
+```{r}
+ away_skills <- c(
+    "Watering", "Harvesting", "Weeding", "Pruning", "Composting",
+    "Watering, Harvesting", "Weeding, Harvesting", "Watering, Weeding", ""
+  )
+```
+
+Collaboration description
+
+```{r}
+collab_descriptions <- c(
+    "Happy to teach composting techniques",
+    "Looking for a co-gardener to share the workload",
+    "Will teach no-dig growing methods",
+    "Happy to share knowledge with beginners",
+    "Come and help with seasonal planting and learn as you go",
+    "Looking for someone to co-manage the plot regularly",
+    "Happy to teach seed saving and propagation",
+    "Open to co-gardening – all experience levels welcome"
+  )
+```
+
+Workshop descriptions
+
+```{r}
+ workshop_descriptions <- c(
+    "Introduction to raised bed gardening",
+    "Composting for beginners",
+    "Seed saving and storage",
+    "Autumn harvest and preserving",
+    "No-dig growing techniques",
+    "Getting started on your allotment",
+    "Growing vegetables from seed",
+    "Companion planting and natural pest control",
+    "Introduction to fruit growing on an allotment"
+  )
+```
+
+#### 4. Helper functions
+
+Calendar dates
+
+```{r}
+cal_start <- as.Date("2026-04-30")
+cal_end   <- as.Date("2027-04-29")
+```
+
+**Crops**
+
+-   Randomly selects between 1 and 5 crops from the reference table
+
+-   Returns a small tibble with the crop name and its associated harvest seasons
+
+```{r}
+gen_crops <- function() {
+    n <- sample(1:5, 1)
+    crops_ref |>
+      slice_sample(n = n) |>
+      select(crop, seasons)
+  }
+```
+
+**Away periods**
+
+-   Generates between 1 and 3 away periods for a single plot
+
+-   For each period:
+
+    -   Randomly picks a start date within the calendar year (leaving at least 21 days before the end so the period fits within the year)
+
+    -   Randomly assigns a duration of 5–21 days
+
+    -   Attaches a help description and any skills the owner needs from a volunteer
+
+-   Periods are sorted chronologically by start date.
+
+```{r}
+gen_away <- function() {
+    n      <- sample(1:3, 1)
+    starts <- sort(sample(seq(cal_start, cal_end - 21, by = "day"), n))
+    map(starts, \(s) tibble(
+      start_date       = as.character(s),
+      end_date         = as.character(s + sample(5:21, 1)),
+      help_description = sample(away_descriptions, 1),
+      skills_needed    = sample(away_skills, 1)
+    )) |> bind_rows()
+  }
+```
+
+**Collaboration slots**
+
+-   Generates between 1 and 2 recurring weekly collaboration slots for a single plot.
+
+-   For each slot:
+
+    -   Randomly picks a day of the week
+
+    -   Randomly assigns a start and end time from a set of realistic time windows
+
+    -   Sets the slot as valid for the full calendar year
+
+    -   Attaches a short description of what the owner is offering/looking for
+
+```{r}
+gen_collab <- function() {
+    n    <- sample(1:2, 1)
+    days <- sample(c("Monday","Tuesday","Wednesday","Thursday",
+                     "Friday","Saturday","Sunday"), n)
+    time_slots <- list(
+      c("09:00","11:00"), c("10:00","12:00"), c("14:00","16:00"),
+      c("16:00","18:00"), c("17:00","19:00")
+    )
+    map(days, \(d) {
+      t <- sample(time_slots, 1)[[1]]
+      tibble(
+        day_of_week = d,
+        start_time  = t[[1]],
+        end_time    = t[[2]],
+        valid_from  = as.character(cal_start),
+        valid_to    = as.character(cal_end),
+        description = sample(collab_descriptions, 1)
+      )
+    }) |> bind_rows()
+  }
+```
+
+**Workshops**
+
+-   Generates between 1 and 3 one-off workshop events for a single plot.
+
+-   For each workshop:
+
+    -   Restricts dates to weekends only (Saturday and Sunday) within the calendar year
+
+    -   Randomly assigns a start and end time from a set of realistic time windows
+
+    -   Attaches a short workshop description and a maximum number of attendees
+
+-   Workshops are sorted chronologically by date.
+
+```{r}
+gen_workshops <- function() {
+    n        <- sample(1:3, 1)
+    weekends <- seq(cal_start, cal_end, by = "day")
+    weekends <- weekends[weekdays(weekends) %in% c("Saturday", "Sunday")]
+    dates    <- sort(sample(weekends, n))
+    time_slots <- list(
+      c("10:00","12:00"), c("10:00","13:00"), c("14:00","16:00")
+    )
+    map(dates, \(d) {
+      t <- sample(time_slots, 1)[[1]]
+      tibble(
+        workshop_date = as.character(d),
+        start_time    = t[[1]],
+        end_time      = t[[2]],
+        description   = sample(workshop_descriptions, 1),
+        max_attendees = sample(c(6, 8, 10, 12, 15), 1)
+      )
+    }) |> bind_rows()
+  }
+```
+
+**Empty tibbles**
+
+These are used as placeholders for plots that do not have a given feature (e.g. a plot with no workshops). They have the correct column names and types so that the list column structure remains consistent across all plots, which is important when converting to nested JSON later.
+
+```{r}
+empty_away      <- tibble(start_date=character(), end_date=character(),
+                            help_description=character(), skills_needed=character())
+
+empty_collab    <- tibble(day_of_week=character(), start_time=character(),
+                            end_time=character(), valid_from=character(),
+                            valid_to=character(), description=character())
+empty_workshop  <- tibble(workshop_date=character(), start_time=character(),
+                            end_time=character(), description=character(),
+                            max_attendees=integer())
+```
+
+#### 5. Generate JSON files and export
+
+Start from existing plots, drop geometry
+
+```{r}
+  plots_base <- london_plots |>
+    st_drop_geometry() |>
+    select(plot_id)
+```
+
+Filter to 70% food-growing plots
+
+```{r}
+food_plots <- plots_base |>
+    slice_sample(prop = 0.70) |>
+    arrange(plot_id)
+
+  n_food <- nrow(food_plots)
+```
+
+Pre-sample all flags (fast, vectorised)
+
+```{r}
+donate_flag   <- sample(c(TRUE,FALSE), n_food, replace=TRUE, prob=c(0.50, 0.50))
+  dropoff_flag  <- donate_flag & sample(c(TRUE,FALSE), n_food, replace=TRUE, prob=c(0.20, 0.80))
+  away_flag     <- sample(c(TRUE,FALSE), n_food, replace=TRUE, prob=c(0.40, 0.60))
+  collab_flag   <- sample(c(TRUE,FALSE), n_food, replace=TRUE, prob=c(0.30, 0.70))
+  workshop_flag <- sample(c(TRUE,FALSE), n_food, replace=TRUE, prob=c(0.10, 0.90))
+```
+
+Generate names, sanitize for email
+
+```{r}
+fn            <- sample(first_names, n_food, replace=TRUE)
+  ln            <- sample(last_names,  n_food, replace=TRUE)
+  email_prefix  <- paste0(
+    gsub("[^a-z]", "", tolower(fn)), ".",
+    gsub("[^a-z]", "", tolower(ln)),
+    sample(1:999, n_food, replace=TRUE)
+  )
+```
+
+Build flat table
+
+```{r}
+ allotment_data <- food_plots |>
+    mutate(
+      # Owner details
+      owner_name        = paste(fn, ln),
+      owner_email       = paste0(email_prefix, "@",
+                                 sample(c("gmail.com","hotmail.co.uk",
+                                          "outlook.com","yahoo.co.uk"),
+                                        n_food, replace=TRUE)),
+
+      # Food donation
+      willing_to_donate = donate_flag,
+      willing_dropoff   = dropoff_flag,
+      max_travel_km     = ifelse(dropoff_flag, round(runif(n_food, 0, 5), 1), NA_real_),
+      max_travel_min    = ifelse(dropoff_flag, sample(0:40, n_food, replace=TRUE), NA_integer_),
+
+      # List columns — .progress shows a labelled progress bar for each
+      crops               = map(seq_len(n_food), \(i) gen_crops(),
+                                .progress = "Generating crops"),
+      away_periods        = map(away_flag,        \(x) if(x) gen_away()      else empty_away,
+                                .progress = "Generating away periods"),
+      collaboration_slots = map(collab_flag,      \(x) if(x) gen_collab()    else empty_collab,
+                                .progress = "Generating collaboration slots"),
+      workshops           = map(workshop_flag,    \(x) if(x) gen_workshops() else empty_workshop,
+                                .progress = "Generating workshops")
+    )
+```
+
+#### 6. Making individual JSON files (and exporting them)
+
+Core owner/donation data
+
+```{r}
+allotment_data |>
+    select(plot_id, owner_name, owner_email,
+           willing_to_donate, willing_dropoff,
+           max_travel_km, max_travel_min) |>
+    toJSON(pretty = TRUE, na = "null") |>
+    write(here::here("Final_Data/plots_core.json"))
+```
+
+Crops
+
+```{r}
+ allotment_data |>
+    select(plot_id, crops) |>
+    toJSON(pretty = TRUE, na = "null") |>
+    write(here::here("Final_Data/plots_crops.json"))
+```
+
+Away periods
+
+```{r}
+allotment_data |>
+    filter(map_lgl(away_periods, \(x) nrow(x) > 0)) |>
+    select(plot_id, away_periods) |>
+    toJSON(pretty = TRUE, na = "null") |>
+    write(here::here("Final_Data/plots_away.json"))
+```
+
+Collaboration slots
+
+```{r}
+allotment_data |>
+    filter(map_lgl(collaboration_slots, \(x) nrow(x) > 0)) |>
+    select(plot_id, collaboration_slots) |>
+    toJSON(pretty = TRUE, na = "null") |>
+    write(here::here("Final_Data/plots_collaboration.json"))
+```
+
+Workshops
+
+```{r}
+allotment_data |>
+    filter(map_lgl(workshops, \(x) nrow(x) > 0)) |>
+    select(plot_id, workshops) |>
+    toJSON(pretty = TRUE, na = "null") |>
+    write(here::here("Final_Data/plots_workshops.json"))
+```
+
+## Convert polygons to centroids
+
+Convert polygons to point centroids and export
+
+```{r}
+london_plot_points <- london_plots |>
+    st_centroid()
+
+st_write(london_plot_points, here::here("Final_Data/plots_points.geojson"), driver = "GeoJSON")
+```
