@@ -207,6 +207,13 @@ export default function ExplorePage() {
     return filteredPlots.slice(0, 2000)
   }, [filteredPlots])
 
+  const visibleAllotmentCount = useMemo(() => {
+    const allotmentIds = new Set(
+      mapPlots.map((plot) => plot.plot_id.split('_')[0])
+    )
+    return allotmentIds.size
+  }, [mapPlots])
+
   const selectedCrops = selectedPlot
     ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
     : null
@@ -282,7 +289,8 @@ export default function ExplorePage() {
           <p><strong>Selected crop:</strong> {selectedCrop}</p>
           <p><strong>Donation filter:</strong> {selectedDonationType}</p>
           <p><strong>Volunteer filter:</strong> {selectedVolunteerType}</p>
-          <p><strong>Map points shown:</strong> {mapPlots.length}</p>
+          <p><strong>Visible plots:</strong> {mapPlots.length}</p>
+          <p><strong>Visible allotments on map:</strong> {visibleAllotmentCount}</p>
 
           {!loading && (
             <div style={{ marginTop: '16px' }}>

@@ -49,6 +49,7 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
   const layerGroupRef = useRef<L.LayerGroup | null>(null)
+  const pointLookupRef = useRef<Map<string, L.LatLng>>(new Map())
 
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return
@@ -73,11 +74,23 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
     const map = leafletMapRef.current
     const layerGroup = layerGroupRef.current
     layerGroup.clearLayers()
+    pointLookupRef.current.clear()
+
+    // Group visible plots by allotment id
+    const allotmentPlotMap = new Map<string, Plot[]>()
+
+    plots.forEach((plot) => {
+      const allotmentId = plot.plot_id.split('_')[0]
+      const existing = allotmentPlotMap.get(allotmentId) || []
+      existing.push(plot)
+      allotmentPlotMap.set(allotmentId, existing)
+    })
 
     fetch('/data/plots_points.geojson')
       .then((res) => res.json())
       .then((geoData: GeoJsonData) => {
         const bounds: L.LatLngExpression[] = []
+        const renderedAllotments = new Set<string>()
 
         geoData.features.forEach((feature) => {
           const allotmentIdRaw = feature.properties?.allotment_id
@@ -85,22 +98,25 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
             allotmentIdRaw !== undefined ? String(allotmentIdRaw) : undefined
 
           if (!allotmentId) return
+          if (renderedAllotments.has(allotmentId)) return
 
-          const matchedPlot = plots.find((plot) =>
-            plot.plot_id.startsWith(`${allotmentId}_`)
-          )
+          const matchedPlots = allotmentPlotMap.get(allotmentId)
+          if (!matchedPlots || matchedPlots.length === 0) return
 
-          // Only render points that match the current filtered plots
-          if (!matchedPlot) return
+          const matchedPlot = matchedPlots[0]
 
           const [east, north] = feature.geometry.coordinates
           const [lng, lat] = proj4(EPSG27700, WGS84, [east, north])
+
+          const latLng = L.latLng(lat, lng)
+          pointLookupRef.current.set(allotmentId, latLng)
+          renderedAllotments.add(allotmentId)
 
           const isSelected =
             selectedPlotId !== null &&
             selectedPlotId.startsWith(`${allotmentId}_`)
 
-          const marker = L.circleMarker([lat, lng], {
+          const marker = L.circleMarker(latLng, {
             radius: isSelected ? 10 : 7,
             fillColor: isSelected ? '#d62828' : '#ff7f11',
             color: '#000000',
@@ -114,7 +130,7 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
           })
 
           marker.bindPopup(
-            `<strong>${matchedPlot.owner_name}</strong><br/>Plot ID: ${matchedPlot.plot_id}<br/>Allotment ID: ${allotmentId}`
+            `<strong>${matchedPlot.owner_name}</strong><br/>Plot ID: ${matchedPlot.plot_id}<br/>Allotment ID: ${allotmentId}<br/>Plots in allotment: ${matchedPlots.length}`
           )
 
           marker.addTo(layerGroup)
@@ -129,6 +145,19 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
         console.error('Failed to load plot points geojson:', err)
       })
   }, [plots, selectedPlotId, onSelectPlot])
+
+  useEffect(() => {
+    if (!leafletMapRef.current || !selectedPlotId) return
+
+    const allotmentId = selectedPlotId.split('_')[0]
+    const latLng = pointLookupRef.current.get(allotmentId)
+
+    if (latLng) {
+      leafletMapRef.current.flyTo(latLng, 13, {
+        duration: 0.8,
+      })
+    }
+  }, [selectedPlotId])
 
   return (
     <div
