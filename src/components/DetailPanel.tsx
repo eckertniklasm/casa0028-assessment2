@@ -30,11 +30,24 @@ type AwayRecord = {
   away_periods: AwayPeriod[]
 }
 
+type CollaborationSlot = {
+  day_of_week: string
+  start_time: string
+  end_time: string
+  description: string
+}
+
+type CollaborationRecord = {
+  plot_id: string
+  collaboration_slots: CollaborationSlot[]
+}
+
 type Props = {
   mode: string
   selectedPlot: Plot | null
   selectedCrops: CropRecord | null
   selectedAway: AwayRecord | null
+  selectedCollaboration: CollaborationRecord | null
 }
 
 export default function DetailPanel({
@@ -42,6 +55,7 @@ export default function DetailPanel({
   selectedPlot,
   selectedCrops,
   selectedAway,
+  selectedCollaboration,
 }: Props) {
   return (
     <div
@@ -131,6 +145,39 @@ export default function DetailPanel({
                   </div>
                 ))
               )}
+
+              <div style={{ marginTop: '20px' }}>
+                <h4>Collaboration Slots</h4>
+
+                {!selectedCollaboration ||
+                !selectedCollaboration.collaboration_slots ||
+                selectedCollaboration.collaboration_slots.length === 0 ? (
+                  <p>No collaboration data available for this plot.</p>
+                ) : (
+                  selectedCollaboration.collaboration_slots.map((slot, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        marginBottom: '10px',
+                        background: '#fafafa',
+                      }}
+                    >
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Day:</strong> {slot.day_of_week}
+                      </p>
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Time:</strong> {slot.start_time} - {slot.end_time}
+                      </p>
+                      <p style={{ margin: 0 }}>
+                        <strong>Description:</strong> {slot.description}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

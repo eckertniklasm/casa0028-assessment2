@@ -36,6 +36,18 @@ type AwayRecord = {
   away_periods: AwayPeriod[]
 }
 
+type CollaborationSlot = {
+  day_of_week: string
+  start_time: string
+  end_time: string
+  description: string
+}
+
+type CollaborationRecord = {
+  plot_id: string
+  collaboration_slots: CollaborationSlot[]
+}
+
 export default function ExplorePage() {
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
@@ -44,6 +56,7 @@ export default function ExplorePage() {
 
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
   const [awayData, setAwayData] = useState<AwayRecord[]>([])
+  const [collaborationData, setCollaborationData] = useState<CollaborationRecord[]>([])
 
   const [selectedCrop, setSelectedCrop] = useState('All')
   const [selectedDonationType, setSelectedDonationType] = useState('All')
@@ -82,6 +95,17 @@ export default function ExplorePage() {
       })
       .catch((err) => {
         console.error('Failed to load away data:', err)
+      })
+  }, [])
+
+  useEffect(() => {
+    fetch('/data/plots_collaboration.json')
+      .then((res) => res.json())
+      .then((data) => {
+        setCollaborationData(data)
+      })
+      .catch((err) => {
+        console.error('Failed to load collaboration data:', err)
       })
   }, [])
 
@@ -124,6 +148,13 @@ export default function ExplorePage() {
         const awayPlotIds = new Set(awayData.map((item) => item.plot_id))
         result = result.filter((plot) => awayPlotIds.has(plot.plot_id))
       }
+
+      if (selectedVolunteerType === 'collaboration') {
+        const collaborationPlotIds = new Set(
+          collaborationData.map((item) => item.plot_id)
+        )
+        result = result.filter((plot) => collaborationPlotIds.has(plot.plot_id))
+      }
     }
 
     return result
@@ -134,6 +165,7 @@ export default function ExplorePage() {
     selectedVolunteerType,
     cropsData,
     awayData,
+    collaborationData,
     plots,
   ])
 
@@ -145,6 +177,11 @@ export default function ExplorePage() {
   const selectedAway =
     selectedPlot
       ? awayData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+      : null
+
+  const selectedCollaboration =
+    selectedPlot
+      ? collaborationData.find((item) => item.plot_id === selectedPlot.plot_id) || null
       : null
 
   useEffect(() => {
@@ -224,6 +261,7 @@ export default function ExplorePage() {
           selectedPlot={selectedPlot}
           selectedCrops={selectedCrops}
           selectedAway={selectedAway}
+          selectedCollaboration={selectedCollaboration}
         />
       </div>
     </div>
