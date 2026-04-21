@@ -73,6 +73,9 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
 
     const map = leafletMapRef.current
     const layerGroup = layerGroupRef.current
+    const controller = new AbortController()
+    let isCancelled = false
+
     layerGroup.clearLayers()
     pointLookupRef.current.clear()
 
@@ -86,10 +89,24 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
       allotmentPlotMap.set(allotmentId, existing)
     })
 
-    fetch('/data/plots_points.geojson')
-      .then((res) => res.json())
+    fetch('/data/plots_points.geojson', { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch geojson: ${res.status}`)
+        }
+
+        return res.json()
+      })
       .then((geoData: GeoJsonData) => {
-        const bounds: L.LatLngExpression[] = []
+        if (
+          isCancelled ||
+          leafletMapRef.current !== map ||
+          layerGroupRef.current !== layerGroup
+        ) {
+          return
+        }
+
+        const bounds: L.LatLngTuple[] = []
         const renderedAllotments = new Set<string>()
 
         geoData.features.forEach((feature) => {
@@ -133,17 +150,28 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
             `<strong>${matchedPlot.owner_name}</strong><br/>Plot ID: ${matchedPlot.plot_id}<br/>Allotment ID: ${allotmentId}<br/>Plots in allotment: ${matchedPlots.length}`
           )
 
+          if (isCancelled) return
+
           marker.addTo(layerGroup)
           bounds.push([lat, lng])
         })
 
-        if (bounds.length > 0) {
+        if (bounds.length > 0 && !isCancelled) {
           map.fitBounds(bounds, { padding: [20, 20] })
         }
       })
       .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return
+        }
+
         console.error('Failed to load plot points geojson:', err)
       })
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
   }, [plots, selectedPlotId, onSelectPlot])
 
   useEffect(() => {
