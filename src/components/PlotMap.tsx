@@ -46,6 +46,8 @@ const EPSG27700 =
 const WGS84 = 'EPSG:4326'
 
 export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) {
+  const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
+
   const mapRef = useRef<HTMLDivElement | null>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
   const layerGroupRef = useRef<L.LayerGroup | null>(null)
@@ -89,7 +91,7 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
       allotmentPlotMap.set(allotmentId, existing)
     })
 
-    fetch('/data/plots_points.geojson', { signal: controller.signal })
+    fetch(`${dataBaseUrl}plots_points.geojson`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to fetch geojson: ${res.status}`)
@@ -172,7 +174,7 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
       isCancelled = true
       controller.abort()
     }
-  }, [plots, selectedPlotId, onSelectPlot])
+  }, [plots, selectedPlotId, onSelectPlot, dataBaseUrl])
 
   useEffect(() => {
     if (!leafletMapRef.current || !selectedPlotId) return

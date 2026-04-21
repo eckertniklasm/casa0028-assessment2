@@ -63,6 +63,8 @@ type WorkshopRecord = {
 }
 
 export default function ExplorePage() {
+  const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
+
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
@@ -78,7 +80,7 @@ export default function ExplorePage() {
   const [selectedVolunteerType, setSelectedVolunteerType] = useState('All')
 
   useEffect(() => {
-    fetch('/data/plots_core.json')
+    fetch(`${dataBaseUrl}plots_core.json`)
       .then((res) => res.json())
       .then((data) => {
         setPlots(data)
@@ -89,10 +91,10 @@ export default function ExplorePage() {
         console.error('Failed to load plot data:', err)
         setLoading(false)
       })
-  }, [])
+  }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch('/data/plots_crops.json')
+    fetch(`${dataBaseUrl}plots_crops.json`)
       .then((res) => res.json())
       .then((data) => {
         setCropsData(data)
@@ -100,10 +102,10 @@ export default function ExplorePage() {
       .catch((err) => {
         console.error('Failed to load crops data:', err)
       })
-  }, [])
+  }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch('/data/plots_away.json')
+    fetch(`${dataBaseUrl}plots_away.json`)
       .then((res) => res.json())
       .then((data) => {
         setAwayData(data)
@@ -111,10 +113,10 @@ export default function ExplorePage() {
       .catch((err) => {
         console.error('Failed to load away data:', err)
       })
-  }, [])
+  }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch('/data/plots_collaboration.json')
+    fetch(`${dataBaseUrl}plots_collaboration.json`)
       .then((res) => res.json())
       .then((data) => {
         setCollaborationData(data)
@@ -122,10 +124,10 @@ export default function ExplorePage() {
       .catch((err) => {
         console.error('Failed to load collaboration data:', err)
       })
-  }, [])
+  }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch('/data/plots_workshops.json')
+    fetch(`${dataBaseUrl}plots_workshops.json`)
       .then((res) => res.json())
       .then((data) => {
         setWorkshopsData(data)
@@ -133,7 +135,7 @@ export default function ExplorePage() {
       .catch((err) => {
         console.error('Failed to load workshops data:', err)
       })
-  }, [])
+  }, [dataBaseUrl])
 
   const cropOptions = useMemo(() => {
     const allCrops = cropsData.flatMap((item) =>
