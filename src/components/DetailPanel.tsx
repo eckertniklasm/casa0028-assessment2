@@ -58,7 +58,6 @@ type WorkshopRecord = {
 type Props = {
   mode: string
   selectedAllotmentId: string | null
-  selectedAllotmentPlots: Plot[]
   selectedPlot: Plot | null
   selectedCrops: CropRecord | null
   selectedAway: AwayRecord | null
@@ -69,7 +68,6 @@ type Props = {
 export default function DetailPanel({
   mode,
   selectedAllotmentId,
-  selectedAllotmentPlots,
   selectedPlot,
   selectedCrops,
   selectedAway,
