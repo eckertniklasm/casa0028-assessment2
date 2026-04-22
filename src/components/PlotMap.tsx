@@ -325,7 +325,7 @@ export default function PlotMap({
         allVisibleBoundsRef.current = bounds
         syncRepresentationWithZoom()
 
-        if (bounds && bounds.isValid() && !isCancelled && !selectedAllotmentId) {
+        if (bounds && !isCancelled && !selectedAllotmentId) {
           map.fitBounds(bounds, { padding: [20, 20] })
         }
 
