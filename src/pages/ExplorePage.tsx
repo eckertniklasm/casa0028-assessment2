@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import ModeSwitcher from '../components/ModeSwitcher'
 import FilterPanel from '../components/FilterPanel'
 import DetailPanel from '../components/DetailPanel'
 import PlotList from '../components/PlotList'
 import PlotMap from '../components/PlotMap'
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 type Plot = {
   plot_id: string
@@ -15,282 +16,382 @@ type Plot = {
   max_travel_min: number | null
 }
 
-type Crop = {
-  crop: string
-  seasons: string
-}
-
 type CropRecord = {
   plot_id: string
-  crops: Crop[]
+  crops: { crop: string; seasons: string }[]
 }
 
-type AwayPeriod = {
-  start_date: string
-  end_date: string
+type AwayFilterRecord = {
+  plot_id: string
+  experience_level: number
+  commitment_level: number
+  away_periods: { start_date: string; end_date: string }[]
+}
+
+type AwayDetailsRecord = {
+  plot_id: string
   help_description: string
-  skills_needed: string
 }
 
-type AwayRecord = {
+type CollabFilterRecord = {
   plot_id: string
-  away_periods: AwayPeriod[]
+  experience_level: number
+  collaboration_slots: {
+    day_of_week: string
+    start_time: string
+    end_time: string
+    valid_from: string
+    valid_to: string
+  }[]
 }
 
-type CollaborationSlot = {
-  day_of_week: string
-  start_time: string
-  end_time: string
-  description: string
-}
-
-type CollaborationRecord = {
+type CollabDetailsRecord = {
   plot_id: string
-  collaboration_slots: CollaborationSlot[]
+  collaboration_slots: { description: string }[]
 }
 
-type Workshop = {
-  workshop_date: string
-  start_time: string
-  end_time: string
-  description: string
-  max_attendees: number
-}
-
-type WorkshopRecord = {
+type WorkshopFilterRecord = {
   plot_id: string
-  workshops: Workshop[]
+  experience_level: number
+  kids_allowed: boolean
+  workshops: {
+    workshop_date: string
+    start_time: string
+    end_time: string
+    max_attendees: number
+  }[]
+}
+
+type WorkshopDetailsRecord = {
+  plot_id: string
+  workshops: { workshop_date: string; description: string }[]
 }
 
 type AllotmentFeature = {
-  properties?: {
-    id?: string | number
-    name?: string | null
-  }
+  properties?: { id?: string | number; name?: string | null }
 }
 
-type AllotmentsGeoJson = {
-  features?: AllotmentFeature[]
+type AllotmentsGeoJson = { features?: AllotmentFeature[] }
+
+type ParticipateFilters = {
+  opportunityType: string
+  startDate: string
+  endDate: string
+  day: string
+  time: string
+  experience: string
+  commitment: string
+  kidsAllowed: string
 }
 
-export default function ExplorePage() {
+const DEFAULT_PARTICIPATE_FILTERS: ParticipateFilters = {
+  opportunityType: 'Any',
+  startDate: '',
+  endDate: '',
+  day: 'Any',
+  time: 'Any',
+  experience: 'Any',
+  commitment: 'Any',
+  kidsAllowed: 'Any',
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const toMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+const TIME_RANGES: Record<string, [number, number]> = {
+  Morning:   [360,  660],
+  Midday:    [660,  840],
+  Afternoon: [840,  1020],
+  Evening:   [1020, 1260],
+}
+
+const DAY_INDEX: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+  Thursday: 4, Friday: 5, Saturday: 6,
+}
+
+function overlapsTime(start: string, end: string, filterTime: string) {
+  if (filterTime === 'Any') return true
+  const [fs, fe] = TIME_RANGES[filterTime]
+  return toMin(start) < fe && toMin(end) > fs
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+type Props = { mode: 'participate' | 'donate' | 'receive' }
+
+export default function ExplorePage({ mode }: Props) {
   const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
   const mapSectionRef = useRef<HTMLDivElement | null>(null)
 
-  const [mode, setMode] = useState('food')
+  // ── Core data ──────────────────────────────────────────────────────────────
   const [plots, setPlots] = useState<Plot[]>([])
-  const [selectedAllotmentId, setSelectedAllotmentId] = useState<string | null>(
-    null
-  )
-  const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
   const [loading, setLoading] = useState(true)
-
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
-  const [awayData, setAwayData] = useState<AwayRecord[]>([])
-  const [collaborationData, setCollaborationData] = useState<CollaborationRecord[]>([])
-  const [workshopsData, setWorkshopsData] = useState<WorkshopRecord[]>([])
   const [allotmentNameById, setAllotmentNameById] = useState<Record<string, string>>({})
 
+  // ── Participate filter data ────────────────────────────────────────────────
+  const [awayFilterData, setAwayFilterData] = useState<AwayFilterRecord[]>([])
+  const [awayDetailsData, setAwayDetailsData] = useState<AwayDetailsRecord[]>([])
+  const [collabFilterData, setCollabFilterData] = useState<CollabFilterRecord[]>([])
+  const [collabDetailsData, setCollabDetailsData] = useState<CollabDetailsRecord[]>([])
+  const [workshopFilterData, setWorkshopFilterData] = useState<WorkshopFilterRecord[]>([])
+  const [workshopDetailsData, setWorkshopDetailsData] = useState<WorkshopDetailsRecord[]>([])
+
+  // ── Selection state ────────────────────────────────────────────────────────
+  const [selectedAllotmentId, setSelectedAllotmentId] = useState<string | null>(null)
+  const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
+
+  // ── Food filter state ──────────────────────────────────────────────────────
   const [selectedCrop, setSelectedCrop] = useState('All')
   const [selectedDonationType, setSelectedDonationType] = useState('All')
-  const [selectedVolunteerType, setSelectedVolunteerType] = useState('All')
 
+  // ── Participate filter state ───────────────────────────────────────────────
+  const [participateFilters, setParticipateFilters] = useState<ParticipateFilters>(
+    DEFAULT_PARTICIPATE_FILTERS
+  )
+
+  const handleParticipateFilterChange = (key: string, value: string) => {
+    setParticipateFilters((prev) => ({ ...prev, [key]: value }))
+  }
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetch(`${dataBaseUrl}plots_core.json`)
-      .then((res) => res.json())
+      .then((r) => r.json())
       .then((data) => {
         setPlots(data)
         setSelectedPlot(data.length > 0 ? data[0] : null)
         setLoading(false)
       })
-      .catch((err) => {
-        console.error('Failed to load plot data:', err)
-        setLoading(false)
-      })
+      .catch((err) => { console.error('Failed to load plot data:', err); setLoading(false) })
   }, [dataBaseUrl])
 
   useEffect(() => {
     fetch(`${dataBaseUrl}plots_crops.json`)
-      .then((res) => res.json())
-      .then((data) => {
-        setCropsData(data)
-      })
-      .catch((err) => {
-        console.error('Failed to load crops data:', err)
-      })
+      .then((r) => r.json())
+      .then(setCropsData)
+      .catch((err) => console.error('Failed to load crops data:', err))
   }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch(`${dataBaseUrl}plots_away.json`)
-      .then((res) => res.json())
-      .then((data) => {
-        setAwayData(data)
-      })
-      .catch((err) => {
-        console.error('Failed to load away data:', err)
-      })
+    fetch(`${dataBaseUrl}plots_away_filter.json`)
+      .then((r) => r.json())
+      .then(setAwayFilterData)
+      .catch((err) => console.error('Failed to load away filter data:', err))
   }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch(`${dataBaseUrl}plots_collaboration.json`)
-      .then((res) => res.json())
-      .then((data) => {
-        setCollaborationData(data)
-      })
-      .catch((err) => {
-        console.error('Failed to load collaboration data:', err)
-      })
+    fetch(`${dataBaseUrl}plots_away_details.json`)
+      .then((r) => r.json())
+      .then(setAwayDetailsData)
+      .catch((err) => console.error('Failed to load away details data:', err))
   }, [dataBaseUrl])
 
   useEffect(() => {
-    fetch(`${dataBaseUrl}plots_workshops.json`)
-      .then((res) => res.json())
-      .then((data) => {
-        setWorkshopsData(data)
-      })
-      .catch((err) => {
-        console.error('Failed to load workshops data:', err)
-      })
+    fetch(`${dataBaseUrl}plots_collaboration_filter.json`)
+      .then((r) => r.json())
+      .then(setCollabFilterData)
+      .catch((err) => console.error('Failed to load collaboration filter data:', err))
+  }, [dataBaseUrl])
+
+  useEffect(() => {
+    fetch(`${dataBaseUrl}plots_collaboration_details.json`)
+      .then((r) => r.json())
+      .then(setCollabDetailsData)
+      .catch((err) => console.error('Failed to load collaboration details data:', err))
+  }, [dataBaseUrl])
+
+  useEffect(() => {
+    fetch(`${dataBaseUrl}plots_workshops_filter.json`)
+      .then((r) => r.json())
+      .then(setWorkshopFilterData)
+      .catch((err) => console.error('Failed to load workshops filter data:', err))
+  }, [dataBaseUrl])
+
+  useEffect(() => {
+    fetch(`${dataBaseUrl}plots_workshops_details.json`)
+      .then((r) => r.json())
+      .then(setWorkshopDetailsData)
+      .catch((err) => console.error('Failed to load workshops details data:', err))
   }, [dataBaseUrl])
 
   useEffect(() => {
     fetch(`${dataBaseUrl}allotments_polygons.geojson`)
-      .then((res) => res.json())
+      .then((r) => r.json())
       .then((data: AllotmentsGeoJson) => {
         const nextMap: Record<string, string> = {}
-
-        ;(data.features || []).forEach((feature) => {
-          const idRaw = feature.properties?.id
-          const nameRaw = feature.properties?.name
-
+        ;(data.features || []).forEach((f) => {
+          const idRaw = f.properties?.id
+          const nameRaw = f.properties?.name
           if (idRaw === undefined || !nameRaw) return
-
           nextMap[String(idRaw)] = nameRaw
         })
-
         setAllotmentNameById(nextMap)
       })
-      .catch((err) => {
-        console.error('Failed to load allotment names:', err)
-      })
+      .catch((err) => console.error('Failed to load allotment names:', err))
   }, [dataBaseUrl])
 
+  // ── Crop options (food mode) ───────────────────────────────────────────────
   const cropOptions = useMemo(() => {
-    const allCrops = cropsData.flatMap((item) =>
-      item.crops.map((crop) => crop.crop)
-    )
-    return Array.from(new Set(allCrops)).sort()
+    const all = cropsData.flatMap((item) => item.crops.map((c) => c.crop))
+    return Array.from(new Set(all)).sort()
   }, [cropsData])
 
+  // ── Filtered plots ─────────────────────────────────────────────────────────
   const filteredPlots = useMemo(() => {
     let result = plots
 
-    if (mode === 'food') {
-      result = result.filter((plot) => plot.willing_to_donate === true)
+    // Food modes
+    if (mode === 'donate' || mode === 'receive') {
+      result = result.filter((p) => p.willing_to_donate === true)
 
       if (selectedCrop !== 'All') {
-        const matchingPlotIds = new Set(
+        const matchIds = new Set(
           cropsData
             .filter((item) =>
-              item.crops.some(
-                (crop) => crop.crop.toLowerCase() === selectedCrop.toLowerCase()
-              )
+              item.crops.some((c) => c.crop.toLowerCase() === selectedCrop.toLowerCase())
             )
             .map((item) => item.plot_id)
         )
-
-        result = result.filter((plot) => matchingPlotIds.has(plot.plot_id))
+        result = result.filter((p) => matchIds.has(p.plot_id))
       }
 
-      if (selectedDonationType === 'dropoff') {
-        result = result.filter((plot) => plot.willing_dropoff === true)
-      }
-
-      if (selectedDonationType === 'collection') {
-        result = result.filter((plot) => plot.willing_dropoff === false)
-      }
+      if (selectedDonationType === 'dropoff') result = result.filter((p) => p.willing_dropoff)
+      if (selectedDonationType === 'collection') result = result.filter((p) => !p.willing_dropoff)
     }
 
-    if (mode === 'volunteer') {
-      if (selectedVolunteerType === 'away') {
-        const awayPlotIds = new Set(awayData.map((item) => item.plot_id))
-        result = result.filter((plot) => awayPlotIds.has(plot.plot_id))
-      }
+    // Participate mode
+    if (mode === 'participate') {
+      const { opportunityType, startDate, endDate, day, time, experience, commitment, kidsAllowed } =
+        participateFilters
 
-      if (selectedVolunteerType === 'collaboration') {
-        const collaborationPlotIds = new Set(
-          collaborationData.map((item) => item.plot_id)
-        )
-        result = result.filter((plot) => collaborationPlotIds.has(plot.plot_id))
-      }
+      const userStart = startDate ? new Date(startDate) : null
+      const userEnd   = endDate   ? new Date(endDate)   : null
 
-      if (selectedVolunteerType === 'workshop') {
-        const workshopPlotIds = new Set(
-          workshopsData.map((item) => item.plot_id)
-        )
-        result = result.filter((plot) => workshopPlotIds.has(plot.plot_id))
-      }
+      // Away eligible plot IDs
+      const awayEligible: string[] =
+        opportunityType === 'Any' || opportunityType === 'Volunteering'
+          ? awayFilterData
+              .filter((r) => {
+                if (userStart && userEnd) {
+                  const hasOverlap = r.away_periods.some(
+                    (p) => new Date(p.start_date) <= userEnd && new Date(p.end_date) >= userStart
+                  )
+                  if (!hasOverlap) return false
+                }
+                if (commitment !== 'Any' && r.commitment_level !== parseInt(commitment)) return false
+                if (experience !== 'Any' && r.experience_level !== parseInt(experience)) return false
+                return true
+              })
+              .map((r) => r.plot_id)
+          : []
+
+      // Collaboration eligible plot IDs
+      const collabEligible: string[] =
+        opportunityType === 'Any' || opportunityType === 'Collaboration'
+          ? collabFilterData
+              .filter((r) => {
+                let slots = r.collaboration_slots
+                if (userStart && userEnd)
+                  slots = slots.filter(
+                    (s) => new Date(s.valid_from) <= userEnd && new Date(s.valid_to) >= userStart
+                  )
+                if (day !== 'Any') slots = slots.filter((s) => s.day_of_week === day)
+                if (time !== 'Any') slots = slots.filter((s) => overlapsTime(s.start_time, s.end_time, time))
+                if (slots.length === 0) return false
+                if (experience !== 'Any' && r.experience_level !== parseInt(experience)) return false
+                return true
+              })
+              .map((r) => r.plot_id)
+          : []
+
+      // Workshop eligible plot IDs
+      const workshopEligible: string[] =
+        opportunityType === 'Any' || opportunityType === 'Workshops'
+          ? workshopFilterData
+              .filter((r) => {
+                if (kidsAllowed === 'Yes' && !r.kids_allowed) return false
+                if (kidsAllowed === 'No' && r.kids_allowed) return false
+                if (experience !== 'Any' && r.experience_level !== parseInt(experience)) return false
+                let workshops = r.workshops
+                if (userStart && userEnd)
+                  workshops = workshops.filter((w) => {
+                    const d = new Date(w.workshop_date)
+                    return d >= userStart && d <= userEnd
+                  })
+                if (day !== 'Any')
+                  workshops = workshops.filter(
+                    (w) => new Date(w.workshop_date).getDay() === DAY_INDEX[day]
+                  )
+                if (time !== 'Any')
+                  workshops = workshops.filter((w) => overlapsTime(w.start_time, w.end_time, time))
+                return workshops.length > 0
+              })
+              .map((r) => r.plot_id)
+          : []
+
+      const eligibleIds = new Set([...awayEligible, ...collabEligible, ...workshopEligible])
+      result = result.filter((p) => eligibleIds.has(p.plot_id))
     }
 
     return result
   }, [
-    mode,
-    selectedCrop,
-    selectedDonationType,
-    selectedVolunteerType,
-    cropsData,
-    awayData,
-    collaborationData,
-    workshopsData,
-    plots,
+    mode, plots, cropsData,
+    selectedCrop, selectedDonationType,
+    participateFilters,
+    awayFilterData, collabFilterData, workshopFilterData,
   ])
 
+  // ── Allotment-level derivations ────────────────────────────────────────────
   const selectedAllotmentPlots = useMemo(() => {
-    if (!selectedAllotmentId) {
-      return []
-    }
-
-    return filteredPlots.filter((plot) =>
-      plot.plot_id.startsWith(`${selectedAllotmentId}_`)
-    )
+    if (!selectedAllotmentId) return []
+    return filteredPlots.filter((p) => p.plot_id.startsWith(`${selectedAllotmentId}_`))
   }, [filteredPlots, selectedAllotmentId])
 
   const visibleAllotmentCount = useMemo(() => {
-    const allotmentIds = new Set(
-      filteredPlots.map((plot) => plot.plot_id.split('_')[0])
-    )
-    return allotmentIds.size
+    return new Set(filteredPlots.map((p) => p.plot_id.split('_')[0])).size
   }, [filteredPlots])
 
+  // ── Detail panel data for selected plot ───────────────────────────────────
   const selectedCrops = selectedPlot
-    ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+    ? cropsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
     : null
 
-  const selectedAway = selectedPlot
-    ? awayData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+  const selectedAwayFilter = selectedPlot
+    ? awayFilterData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
     : null
 
-  const selectedCollaboration = selectedPlot
-    ? collaborationData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+  const selectedAwayDetails = selectedPlot
+    ? awayDetailsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
     : null
 
-  const selectedWorkshops = selectedPlot
-    ? workshopsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
+  const selectedCollabFilter = selectedPlot
+    ? collabFilterData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
     : null
 
+  const selectedCollabDetails = selectedPlot
+    ? collabDetailsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
+    : null
+
+  const selectedWorkshopFilter = selectedPlot
+    ? workshopFilterData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
+    : null
+
+  const selectedWorkshopDetails = selectedPlot
+    ? workshopDetailsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
+    : null
+
+  // ── Selection handlers ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (!selectedAllotmentId) {
-      setSelectedPlot(null)
-      return
-    }
-
-    const nextPlot = selectedAllotmentPlots[0] || null
-    if (
-      !nextPlot ||
-      !selectedPlot ||
-      !selectedPlot.plot_id.startsWith(`${selectedAllotmentId}_`)
-    ) {
-      setSelectedPlot(nextPlot)
+    if (!selectedAllotmentId) { setSelectedPlot(null); return }
+    const next = selectedAllotmentPlots[0] ?? null
+    if (!next || !selectedPlot || !selectedPlot.plot_id.startsWith(`${selectedAllotmentId}_`)) {
+      setSelectedPlot(next)
     }
   }, [selectedAllotmentId, selectedAllotmentPlots, selectedPlot])
 
@@ -298,71 +399,76 @@ export default function ExplorePage() {
     const allotmentId = plot.plot_id.split('_')[0]
     setSelectedAllotmentId(allotmentId)
     setSelectedPlot(plot)
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSelectAllotment = (allotmentId: string | null) => {
-    if (!allotmentId) {
-      setSelectedAllotmentId(null)
-      setSelectedPlot(null)
-      return
-    }
-
+    if (!allotmentId) { setSelectedAllotmentId(null); setSelectedPlot(null); return }
     setSelectedAllotmentId(allotmentId)
-
-    const nextPlot = filteredPlots.find((plot) =>
-      plot.plot_id.startsWith(`${allotmentId}_`)
-    )
-    setSelectedPlot(nextPlot || null)
+    const next = filteredPlots.find((p) => p.plot_id.startsWith(`${allotmentId}_`))
+    setSelectedPlot(next ?? null)
   }
 
+  // ── Map panel labels ───────────────────────────────────────────────────────
+  const { opportunityType } = participateFilters
+
   const browseTitle =
-    mode === 'food'
-      ? 'Browse food availability across London'
-      : mode === 'volunteer'
-      ? 'Browse volunteering opportunities across London'
-      : 'Browse allotment activity across London'
+    mode === 'participate'
+      ? opportunityType === 'Volunteering'
+        ? 'Browse volunteering opportunities across London'
+        : opportunityType === 'Collaboration'
+        ? 'Browse collaboration opportunities across London'
+        : opportunityType === 'Workshops'
+        ? 'Browse workshops across London'
+        : 'Browse participation opportunities across London'
+      : 'Browse food availability across London'
 
   const browseDescription =
-    mode === 'food'
-      ? 'Use the filters to explore plots offering produce and view crop information for each location.'
-      : mode === 'volunteer'
-      ? 'Use the filters to explore away-help requests, collaboration slots, and workshops.'
-      : 'Use the filters to explore plot activity and available actions.'
+    mode === 'participate'
+      ? opportunityType === 'Volunteering'
+        ? 'Use the filters to find away-help requests that match your availability and commitment.'
+        : opportunityType === 'Collaboration'
+        ? 'Use the filters to find collaboration slots that match your schedule.'
+        : opportunityType === 'Workshops'
+        ? 'Use the filters to find workshops hosted by allotment owners.'
+        : 'Use the filters to explore all participation opportunities.'
+      : 'Use the filters to explore plots offering produce and view crop information for each location.'
 
   const summaryItems =
-    mode === 'food'
+    mode === 'participate'
       ? [
+          `Opportunity: ${opportunityType}`,
+          `Experience: ${participateFilters.experience === 'Any' ? 'Any' : participateFilters.experience}`,
+          ...(opportunityType === 'Any' || opportunityType === 'Volunteering'
+            ? [`Commitment: ${participateFilters.commitment}`]
+            : []),
+          ...(opportunityType === 'Any' || opportunityType === 'Workshops'
+            ? [`Kids: ${participateFilters.kidsAllowed}`]
+            : []),
+          `Visible plots: ${filteredPlots.length}`,
+          `Visible allotments: ${visibleAllotmentCount}`,
+        ]
+      : [
           `Crop: ${selectedCrop}`,
           `Donation: ${selectedDonationType}`,
           `Visible plots: ${filteredPlots.length}`,
           `Visible allotments on map: ${visibleAllotmentCount}`,
         ]
-      : mode === 'volunteer'
-      ? [
-          `Opportunity: ${selectedVolunteerType}`,
-          `Visible plots: ${filteredPlots.length}`,
-          `Visible allotments on map: ${visibleAllotmentCount}`,
-        ]
-      : [
-          `Visible plots: ${filteredPlots.length}`,
-          `Visible allotments on map: ${visibleAllotmentCount}`,
-        ]
 
   const selectedAllotmentDisplayName = selectedAllotmentId
-    ? allotmentNameById[selectedAllotmentId] || selectedAllotmentId
+    ? allotmentNameById[selectedAllotmentId] ?? selectedAllotmentId
     : null
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
-      <h1>Explore</h1>
-      <p>This is the main platform page for browsing plots and opportunities.</p>
-
-      <ModeSwitcher mode={mode} setMode={setMode} />
+      <h1>
+        {mode === 'participate'
+          ? 'Participate'
+          : mode === 'donate'
+          ? 'Donate Food'
+          : 'Receive Food'}
+      </h1>
 
       <div
         style={{
@@ -372,6 +478,7 @@ export default function ExplorePage() {
           marginTop: '24px',
         }}
       >
+        {/* Left column: filters + plot list */}
         <div
           style={{
             display: 'flex',
@@ -389,8 +496,8 @@ export default function ExplorePage() {
             onCropChange={setSelectedCrop}
             selectedDonationType={selectedDonationType}
             onDonationTypeChange={setSelectedDonationType}
-            selectedVolunteerType={selectedVolunteerType}
-            onVolunteerTypeChange={setSelectedVolunteerType}
+            participateFilters={participateFilters}
+            onParticipateFilterChange={handleParticipateFilterChange}
           />
 
           <div
@@ -437,6 +544,7 @@ export default function ExplorePage() {
           </div>
         </div>
 
+        {/* Centre column: map */}
         <div
           style={{
             background: 'white',
@@ -481,12 +589,7 @@ export default function ExplorePage() {
           {!loading && (
             <div
               ref={mapSectionRef}
-              style={{
-                marginTop: '16px',
-                flex: 1,
-                minHeight: 0,
-                overflow: 'hidden',
-              }}
+              style={{ marginTop: '16px', flex: 1, minHeight: 0, overflow: 'hidden' }}
             >
               <PlotMap
                 plots={filteredPlots}
@@ -497,6 +600,7 @@ export default function ExplorePage() {
           )}
         </div>
 
+        {/* Right column: detail panel */}
         <div
           style={{
             height: 'calc(100vh - 160px)',
@@ -511,13 +615,15 @@ export default function ExplorePage() {
               mode={mode}
               selectedPlot={selectedPlot}
               selectedCrops={selectedCrops}
-              selectedAway={selectedAway}
-              selectedCollaboration={selectedCollaboration}
-              selectedWorkshops={selectedWorkshops}
+              selectedAwayFilter={selectedAwayFilter}
+              selectedAwayDetails={selectedAwayDetails}
+              selectedCollabFilter={selectedCollabFilter}
+              selectedCollabDetails={selectedCollabDetails}
+              selectedWorkshopFilter={selectedWorkshopFilter}
+              selectedWorkshopDetails={selectedWorkshopDetails}
             />
           </div>
         </div>
-
       </div>
     </div>
   )

@@ -1,24 +1,51 @@
 import { useState } from 'react'
 import HomePage from './pages/HomePage'
 import ExplorePage from './pages/ExplorePage'
-import AboutPage from './pages/AboutPage'
 
-type Page = 'home' | 'explore' | 'about'
+type Page = 'home' | 'participate' | 'donate' | 'receive'
+
+const NAV_LINKS: { label: string; page: Page }[] = [
+  { label: 'Home', page: 'home' },
+  { label: 'Participate', page: 'participate' },
+  { label: 'Donate Food', page: 'donate' },
+  { label: 'Receive Food', page: 'receive' },
+]
 
 function App() {
   const [page, setPage] = useState<Page>('home')
+  const [pageKey, setPageKey] = useState(0)
+
+  const navigate = (target: string) => {
+    setPage(target as Page)
+    setPageKey((k) => k + 1)
+  }
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-        <button onClick={() => setPage('home')}>Home</button>
-        <button onClick={() => setPage('explore')}>Explore</button>
-        <button onClick={() => setPage('about')}>About</button>
-      </div>
+    <div className="app-shell">
+      <nav className="topbar">
+        <span className="brand" onClick={() => navigate('home')}>
+          PlotShare
+        </span>
+        <div className="nav">
+          {NAV_LINKS.map(({ label, page: target }) => (
+            <button
+              key={target}
+              className={`nav-link${page === target ? ' active' : ''}`}
+              onClick={() => navigate(target)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </nav>
 
-      {page === 'home' && <HomePage onStart={() => setPage('explore')} />}
-      {page === 'explore' && <ExplorePage />}
-      {page === 'about' && <AboutPage />}
+      {page === 'home' && <HomePage key={pageKey} navigate={navigate} />}
+      {page !== 'home' && (
+        <ExplorePage
+          key={pageKey}
+          mode={page as 'participate' | 'donate' | 'receive'}
+        />
+      )}
     </div>
   )
 }
