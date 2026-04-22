@@ -28,41 +28,58 @@ export default function PlotList({
   }
 
   return (
-    <div style={{ marginTop: '20px' }}>
+    <div
+      style={{
+        marginTop: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+      }}
+    >
       <h3>{title}</h3>
       <p>Number of records: {plots.length}</p>
 
-      {plots.map((plot) => {
-        const isSelected = plot.plot_id === selectedPlotId
+      <div
+        style={{
+          overflowY: 'auto',
+          minHeight: 0,
+          flex: 1,
+          paddingRight: '4px',
+        }}
+      >
+        {plots.map((plot) => {
+          const isSelected = plot.plot_id === selectedPlotId
 
-        return (
-          <div
-            key={plot.plot_id}
-            onClick={() => onSelectPlot(plot)}
-            style={{
-              border: isSelected ? '2px solid #1f4d45' : '1px solid #ddd',
-              borderRadius: '10px',
-              padding: '12px',
-              marginBottom: '12px',
-              background: isSelected ? '#eef6f4' : '#fafafa',
-              cursor: 'pointer',
-            }}
-          >
-            {/* <p>
-              <strong>Plot ID:</strong> {plot.plot_id}
-            </p> */}
-            <p>
-              <strong>Owner:</strong> {plot.owner_name}
-            </p>
-            <p>
-              <strong>Donate:</strong> {plot.willing_to_donate ? 'Yes' : 'No'}
-            </p>
-            <p>
-              <strong>Drop-off:</strong> {plot.willing_dropoff ? 'Yes' : 'No'}
-            </p>
-          </div>
-        )
-      })}
+          return (
+            <div
+              key={plot.plot_id}
+              onClick={() => onSelectPlot(plot)}
+              style={{
+                border: isSelected ? '2px solid #1f4d45' : '1px solid #ddd',
+                borderRadius: '10px',
+                padding: '12px',
+                marginBottom: '12px',
+                background: isSelected ? '#eef6f4' : '#fafafa',
+                cursor: 'pointer',
+              }}
+            >
+              {/* <p>
+                <strong>Plot ID:</strong> {plot.plot_id}
+              </p> */}
+              <p>
+                <strong>Owner:</strong> {plot.owner_name}
+              </p>
+              <p>
+                <strong>Donate:</strong> {plot.willing_to_donate ? 'Yes' : 'No'}
+              </p>
+              <p>
+                <strong>Drop-off:</strong> {plot.willing_dropoff ? 'Yes' : 'No'}
+              </p>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
