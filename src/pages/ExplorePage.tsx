@@ -509,7 +509,6 @@ export default function ExplorePage() {
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <DetailPanel
               mode={mode}
-              selectedAllotmentId={selectedAllotmentId}
               selectedPlot={selectedPlot}
               selectedCrops={selectedCrops}
               selectedAway={selectedAway}
