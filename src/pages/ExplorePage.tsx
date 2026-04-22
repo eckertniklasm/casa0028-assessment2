@@ -67,6 +67,9 @@ export default function ExplorePage() {
 
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
+  const [selectedAllotmentId, setSelectedAllotmentId] = useState<string | null>(
+    null
+  )
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -148,6 +151,8 @@ export default function ExplorePage() {
     let result = plots
 
     if (mode === 'food') {
+      result = result.filter((plot) => plot.willing_to_donate === true)
+
       if (selectedCrop !== 'All') {
         const matchingPlotIds = new Set(
           cropsData
@@ -205,16 +210,22 @@ export default function ExplorePage() {
     plots,
   ])
 
-  const mapPlots = useMemo(() => {
-    return filteredPlots.slice(0, 2000)
-  }, [filteredPlots])
+  const selectedAllotmentPlots = useMemo(() => {
+    if (!selectedAllotmentId) {
+      return []
+    }
+
+    return filteredPlots.filter((plot) =>
+      plot.plot_id.startsWith(`${selectedAllotmentId}_`)
+    )
+  }, [filteredPlots, selectedAllotmentId])
 
   const visibleAllotmentCount = useMemo(() => {
     const allotmentIds = new Set(
-      mapPlots.map((plot) => plot.plot_id.split('_')[0])
+      filteredPlots.map((plot) => plot.plot_id.split('_')[0])
     )
     return allotmentIds.size
-  }, [mapPlots])
+  }, [filteredPlots])
 
   const selectedCrops = selectedPlot
     ? cropsData.find((item) => item.plot_id === selectedPlot.plot_id) || null
@@ -233,23 +244,35 @@ export default function ExplorePage() {
     : null
 
   useEffect(() => {
-    if (!selectedPlot && filteredPlots.length > 0) {
-      setSelectedPlot(filteredPlots[0])
+    if (!selectedAllotmentId) {
+      setSelectedPlot(null)
       return
     }
 
+    const nextPlot = selectedAllotmentPlots[0] || null
     if (
-      selectedPlot &&
-      filteredPlots.length > 0 &&
-      !filteredPlots.some((plot) => plot.plot_id === selectedPlot.plot_id)
+      !nextPlot ||
+      !selectedPlot ||
+      !selectedPlot.plot_id.startsWith(`${selectedAllotmentId}_`)
     ) {
-      setSelectedPlot(filteredPlots[0])
+      setSelectedPlot(nextPlot)
     }
+  }, [selectedAllotmentId, selectedAllotmentPlots, selectedPlot])
 
-    if (filteredPlots.length === 0) {
-      setSelectedPlot(null)
-    }
-  }, [filteredPlots, selectedPlot])
+  const handleSelectPlot = (plot: Plot) => {
+    const allotmentId = plot.plot_id.split('_')[0]
+    setSelectedAllotmentId(allotmentId)
+    setSelectedPlot(plot)
+  }
+
+  const handleSelectAllotment = (allotmentId: string) => {
+    setSelectedAllotmentId(allotmentId)
+
+    const nextPlot = filteredPlots.find((plot) =>
+      plot.plot_id.startsWith(`${allotmentId}_`)
+    )
+    setSelectedPlot(nextPlot || null)
+  }
 
   const browseTitle =
     mode === 'food'
@@ -350,9 +373,9 @@ export default function ExplorePage() {
           {!loading && (
             <div style={{ marginTop: '16px' }}>
               <PlotMap
-                plots={mapPlots}
-                selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
-                onSelectPlot={setSelectedPlot}
+                plots={filteredPlots}
+                selectedAllotmentId={selectedAllotmentId}
+                onSelectAllotment={handleSelectAllotment}
               />
             </div>
           )}
@@ -360,7 +383,7 @@ export default function ExplorePage() {
           <div style={{ marginTop: '20px' }}>
             {loading ? (
               <p>Loading plot data...</p>
-            ) : filteredPlots.length === 0 ? (
+            ) : selectedAllotmentId && selectedAllotmentPlots.length === 0 ? (
               <div
                 style={{
                   border: '1px dashed #bbb',
@@ -370,14 +393,20 @@ export default function ExplorePage() {
                 }}
               >
                 <p style={{ margin: 0 }}>
-                  No matching results were found for the current filters.
+                  No plots in this allotment match the current filters.
                 </p>
               </div>
             ) : (
               <PlotList
-                plots={filteredPlots}
+                plots={selectedAllotmentPlots}
                 selectedPlotId={selectedPlot ? selectedPlot.plot_id : null}
-                onSelectPlot={setSelectedPlot}
+                onSelectPlot={handleSelectPlot}
+                title={
+                  selectedAllotmentId
+                    ? `Plots in allotment ${selectedAllotmentId}`
+                    : 'Plots in selected allotment'
+                }
+                emptyMessage="Click an allotment polygon to view its plots."
               />
             )}
           </div>
@@ -385,6 +414,8 @@ export default function ExplorePage() {
 
         <DetailPanel
           mode={mode}
+          selectedAllotmentId={selectedAllotmentId}
+          selectedAllotmentPlots={selectedAllotmentPlots}
           selectedPlot={selectedPlot}
           selectedCrops={selectedCrops}
           selectedAway={selectedAway}

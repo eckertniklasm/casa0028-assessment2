@@ -57,6 +57,8 @@ type WorkshopRecord = {
 
 type Props = {
   mode: string
+  selectedAllotmentId: string | null
+  selectedAllotmentPlots: Plot[]
   selectedPlot: Plot | null
   selectedCrops: CropRecord | null
   selectedAway: AwayRecord | null
@@ -66,6 +68,8 @@ type Props = {
 
 export default function DetailPanel({
   mode,
+  selectedAllotmentId,
+  selectedAllotmentPlots,
   selectedPlot,
   selectedCrops,
   selectedAway,
@@ -84,9 +88,12 @@ export default function DetailPanel({
     >
       <h3>Detail Panel</h3>
       <p><strong>Current mode:</strong> {mode}</p>
+      <p>
+        <strong>Selected allotment:</strong> {selectedAllotmentId || 'None'}
+      </p>
 
       {!selectedPlot ? (
-        <p>No plot selected yet.</p>
+        <p>Select an allotment polygon to inspect its plots.</p>
       ) : (
         <div style={{ marginTop: '16px' }}>
           <p><strong>Plot ID:</strong> {selectedPlot.plot_id}</p>
@@ -96,6 +103,20 @@ export default function DetailPanel({
           <p><strong>Drop-off:</strong> {selectedPlot.willing_dropoff ? 'Yes' : 'No'}</p>
           <p><strong>Max travel (km):</strong> {selectedPlot.max_travel_km ?? 'N/A'}</p>
           <p><strong>Max travel (min):</strong> {selectedPlot.max_travel_min ?? 'N/A'}</p>
+
+          <div style={{ marginTop: '20px' }}>
+            <h4>Plots in this allotment</h4>
+
+            {selectedAllotmentPlots.length === 0 ? (
+              <p>No plots in this allotment match the current filters.</p>
+            ) : (
+              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                {selectedAllotmentPlots.map((plot) => (
+                  <li key={plot.plot_id}>{plot.plot_id}</li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {mode === 'food' && (
             <div style={{ marginTop: '20px' }}>

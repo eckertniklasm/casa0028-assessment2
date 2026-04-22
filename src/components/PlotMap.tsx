@@ -13,30 +13,50 @@ type Plot = {
   max_travel_min: number | null
 }
 
-type GeoJsonFeature = {
-  type: string
+type AllotmentFeature = {
+  type: 'Feature'
   properties: {
-    allotment_id?: string | number
+    id?: string | number
+    name?: string | null
     [key: string]: any
   }
   geometry: {
     type: string
-    coordinates: [number, number]
+    coordinates: any
   }
 }
 
 type GeoJsonData = {
-  type: string
-  features: GeoJsonFeature[]
+  type: 'FeatureCollection'
+  features: AllotmentFeature[]
+}
+
+type PlotPointFeature = {
+  type: 'Feature'
+  properties: {
+    allotment_id?: string | number
+    plot_id?: string
+    [key: string]: any
+  }
+  geometry: {
+    type: 'Point'
+    coordinates: [number, number]
+  }
+}
+
+type PlotPointsGeoJsonData = {
+  type: 'FeatureCollection'
+  features: PlotPointFeature[]
 }
 
 type Props = {
   plots: Plot[]
-  selectedPlotId: string | null
-  onSelectPlot: (plot: Plot) => void
+  selectedAllotmentId: string | null
+  onSelectAllotment: (allotmentId: string) => void
 }
 
-// British National Grid -> WGS84
+const POLYGON_MIN_ZOOM = 13
+
 const EPSG27700 =
   '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 ' +
   '+x_0=400000 +y_0=-100000 +ellps=airy ' +
@@ -45,13 +65,29 @@ const EPSG27700 =
 
 const WGS84 = 'EPSG:4326'
 
-export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) {
+export default function PlotMap({
+  plots,
+  selectedAllotmentId,
+  onSelectAllotment,
+}: Props) {
   const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
-  const layerGroupRef = useRef<L.LayerGroup | null>(null)
-  const pointLookupRef = useRef<Map<string, L.LatLng>>(new Map())
+  const polygonLayerGroupRef = useRef<L.LayerGroup | null>(null)
+  const pointLayerGroupRef = useRef<L.LayerGroup | null>(null)
+  const plotPointLayerGroupRef = useRef<L.LayerGroup | null>(null)
+  const allVisibleBoundsRef = useRef<L.LatLngBounds | null>(null)
+  const plotPointsDataRef = useRef<PlotPointsGeoJsonData | null>(null)
+
+  const handleResetView = () => {
+    const map = leafletMapRef.current
+    const bounds = allVisibleBoundsRef.current
+
+    if (map && bounds && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [20, 20] })
+    }
+  }
 
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return
@@ -61,27 +97,66 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
 
     leafletMapRef.current = map
-    layerGroupRef.current = L.layerGroup().addTo(map)
+    polygonLayerGroupRef.current = L.layerGroup().addTo(map)
+    pointLayerGroupRef.current = L.layerGroup().addTo(map)
+    plotPointLayerGroupRef.current = L.layerGroup().addTo(map)
 
     return () => {
       map.remove()
       leafletMapRef.current = null
-      layerGroupRef.current = null
+      polygonLayerGroupRef.current = null
+      pointLayerGroupRef.current = null
+      plotPointLayerGroupRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    if (!leafletMapRef.current || !layerGroupRef.current) return
+    if (
+      !leafletMapRef.current ||
+      !polygonLayerGroupRef.current ||
+      !pointLayerGroupRef.current ||
+      !plotPointLayerGroupRef.current
+    ) {
+      return
+    }
 
     const map = leafletMapRef.current
-    const layerGroup = layerGroupRef.current
+    const polygonLayerGroup = polygonLayerGroupRef.current
+    const pointLayerGroup = pointLayerGroupRef.current
+    const plotPointLayerGroup = plotPointLayerGroupRef.current
     const controller = new AbortController()
     let isCancelled = false
 
-    layerGroup.clearLayers()
-    pointLookupRef.current.clear()
+    polygonLayerGroup.clearLayers()
+    pointLayerGroup.clearLayers()
+    plotPointLayerGroup.clearLayers()
 
-    // Group visible plots by allotment id
+    const syncRepresentationWithZoom = () => {
+      const showPolygons = map.getZoom() >= POLYGON_MIN_ZOOM
+
+      if (showPolygons) {
+        if (!map.hasLayer(polygonLayerGroup)) {
+          map.addLayer(polygonLayerGroup)
+        }
+
+        if (map.hasLayer(pointLayerGroup)) {
+          map.removeLayer(pointLayerGroup)
+        }
+
+        return
+      }
+
+      if (!map.hasLayer(pointLayerGroup)) {
+        map.addLayer(pointLayerGroup)
+      }
+
+      if (map.hasLayer(polygonLayerGroup)) {
+        map.removeLayer(polygonLayerGroup)
+      }
+    }
+
+    map.on('zoomend', syncRepresentationWithZoom)
+
     const allotmentPlotMap = new Map<string, Plot[]>()
 
     plots.forEach((plot) => {
@@ -91,10 +166,67 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
       allotmentPlotMap.set(allotmentId, existing)
     })
 
-    fetch(`${dataBaseUrl}plots_points.geojson`, { signal: controller.signal })
+    const renderSelectedAllotmentPlotPoints = () => {
+      if (!selectedAllotmentId) return
+
+      const selectedPlots = allotmentPlotMap.get(selectedAllotmentId) || []
+      if (selectedPlots.length === 0) return
+
+      const selectedPlotIds = new Set(selectedPlots.map((plot) => plot.plot_id))
+      const pointData = plotPointsDataRef.current
+      if (!pointData) return
+
+      pointData.features.forEach((feature) => {
+        const featureAllotmentIdRaw = feature.properties?.allotment_id
+        const featureAllotmentId =
+          featureAllotmentIdRaw !== undefined
+            ? String(featureAllotmentIdRaw)
+            : undefined
+        const plotId = feature.properties?.plot_id
+
+        if (!featureAllotmentId || featureAllotmentId !== selectedAllotmentId) return
+        if (!plotId || !selectedPlotIds.has(plotId)) return
+
+        const [east, north] = feature.geometry.coordinates
+        const [lng, lat] = proj4(EPSG27700, WGS84, [east, north])
+
+        const plotPointMarker = L.circleMarker([lat, lng], {
+          radius: 3,
+          color: '#111827',
+          weight: 1,
+          fillColor: '#f97316',
+          fillOpacity: 0.95,
+        })
+
+        plotPointMarker.bindPopup(`<strong>Plot ID:</strong> ${plotId}`)
+        plotPointMarker.addTo(plotPointLayerGroup)
+      })
+    }
+
+    const ensurePlotPointsData = async () => {
+      if (plotPointsDataRef.current) {
+        return plotPointsDataRef.current
+      }
+
+      const response = await fetch(`${dataBaseUrl}plots_points.geojson`, {
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch plot points geojson: ${response.status}`)
+      }
+
+      const data = (await response.json()) as PlotPointsGeoJsonData
+      plotPointsDataRef.current = data
+      return data
+    }
+
+    fetch(`${dataBaseUrl}allotments_polygons.geojson`, {
+      signal: controller.signal,
+    })
       .then((res) => {
         if (!res.ok) {
-          throw new Error(`Failed to fetch geojson: ${res.status}`)
+          throw new Error(`Failed to fetch allotment polygons: ${res.status}`)
         }
 
         return res.json()
@@ -103,101 +235,182 @@ export default function PlotMap({ plots, selectedPlotId, onSelectPlot }: Props) 
         if (
           isCancelled ||
           leafletMapRef.current !== map ||
-          layerGroupRef.current !== layerGroup
+          polygonLayerGroupRef.current !== polygonLayerGroup ||
+          pointLayerGroupRef.current !== pointLayerGroup ||
+          plotPointLayerGroupRef.current !== plotPointLayerGroup
         ) {
           return
         }
 
-        const bounds: L.LatLngTuple[] = []
-        const renderedAllotments = new Set<string>()
+        let bounds: L.LatLngBounds | null = null
+        const allotmentBoundsById = new Map<string, L.LatLngBounds>()
 
         geoData.features.forEach((feature) => {
-          const allotmentIdRaw = feature.properties?.allotment_id
+          const allotmentIdRaw = feature.properties?.id
           const allotmentId =
             allotmentIdRaw !== undefined ? String(allotmentIdRaw) : undefined
 
           if (!allotmentId) return
-          if (renderedAllotments.has(allotmentId)) return
 
           const matchedPlots = allotmentPlotMap.get(allotmentId)
           if (!matchedPlots || matchedPlots.length === 0) return
 
-          const matchedPlot = matchedPlots[0]
-
-          const [east, north] = feature.geometry.coordinates
-          const [lng, lat] = proj4(EPSG27700, WGS84, [east, north])
-
-          const latLng = L.latLng(lat, lng)
-          pointLookupRef.current.set(allotmentId, latLng)
-          renderedAllotments.add(allotmentId)
-
           const isSelected =
-            selectedPlotId !== null &&
-            selectedPlotId.startsWith(`${allotmentId}_`)
+            selectedAllotmentId !== null && selectedAllotmentId === allotmentId
 
-          const marker = L.circleMarker(latLng, {
-            radius: isSelected ? 10 : 7,
-            fillColor: isSelected ? '#d62828' : '#ff7f11',
-            color: '#000000',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9,
+          const layer = L.geoJSON(feature as any, {
+            style: {
+              color: isSelected ? '#1f4d45' : '#4f46e5',
+              weight: isSelected ? 3 : 2,
+              fillColor: isSelected ? '#a7f3d0' : '#c7d2fe',
+              fillOpacity: isSelected ? 0.5 : 0.28,
+            },
+            onEachFeature: (_geoFeature, leafletLayer) => {
+              leafletLayer.on('click', () => {
+                onSelectAllotment(allotmentId)
+
+                if ('getBounds' in leafletLayer) {
+                  const clickedBounds = (leafletLayer as L.FeatureGroup).getBounds()
+                  if (clickedBounds.isValid()) {
+                    map.fitBounds(clickedBounds, {
+                      padding: [24, 24],
+                      maxZoom: 16,
+                    })
+                  }
+                }
+              })
+
+              leafletLayer.bindPopup(
+                `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
+              )
+            },
           })
 
-          marker.on('click', () => {
-            onSelectPlot(matchedPlot)
+          layer.addTo(polygonLayerGroup)
+
+          const featureBounds = layer.getBounds()
+          if (!featureBounds.isValid()) return
+
+          allotmentBoundsById.set(allotmentId, featureBounds)
+          bounds = bounds ? bounds.extend(featureBounds) : featureBounds
+
+          const center = featureBounds.getCenter()
+          const pointMarker = L.circleMarker(center, {
+            radius: isSelected ? 8 : 6,
+            color: isSelected ? '#1f4d45' : '#4f46e5',
+            weight: isSelected ? 2.5 : 2,
+            fillColor: isSelected ? '#a7f3d0' : '#c7d2fe',
+            fillOpacity: isSelected ? 0.9 : 0.75,
           })
 
-          marker.bindPopup(
-            `<strong>${matchedPlot.owner_name}</strong><br/>Plot ID: ${matchedPlot.plot_id}<br/>Allotment ID: ${allotmentId}<br/>Plots in allotment: ${matchedPlots.length}`
+          pointMarker.on('click', () => {
+            onSelectAllotment(allotmentId)
+
+            const clickedBounds = allotmentBoundsById.get(allotmentId)
+            if (clickedBounds && clickedBounds.isValid()) {
+              map.fitBounds(clickedBounds, {
+                padding: [24, 24],
+                maxZoom: 16,
+              })
+            }
+          })
+
+          pointMarker.bindPopup(
+            `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
           )
 
-          if (isCancelled) return
-
-          marker.addTo(layerGroup)
-          bounds.push([lat, lng])
+          pointMarker.addTo(pointLayerGroup)
         })
 
-        if (bounds.length > 0 && !isCancelled) {
+        allVisibleBoundsRef.current = bounds
+        syncRepresentationWithZoom()
+
+        if (bounds && bounds.isValid() && !isCancelled && !selectedAllotmentId) {
           map.fitBounds(bounds, { padding: [20, 20] })
         }
+
+        ensurePlotPointsData()
+          .then(() => {
+            if (
+              isCancelled ||
+              leafletMapRef.current !== map ||
+              plotPointLayerGroupRef.current !== plotPointLayerGroup
+            ) {
+              return
+            }
+
+            renderSelectedAllotmentPlotPoints()
+          })
+          .catch((err) => {
+            if (err instanceof DOMException && err.name === 'AbortError') {
+              return
+            }
+
+            console.error('Failed to load plot points geojson:', err)
+          })
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') {
           return
         }
 
-        console.error('Failed to load plot points geojson:', err)
+        console.error('Failed to load allotment polygons geojson:', err)
       })
 
     return () => {
       isCancelled = true
       controller.abort()
+      map.off('zoomend', syncRepresentationWithZoom)
+
+      if (map.hasLayer(polygonLayerGroup)) {
+        map.removeLayer(polygonLayerGroup)
+      }
+
+      if (map.hasLayer(pointLayerGroup)) {
+        map.removeLayer(pointLayerGroup)
+      }
+
+      if (map.hasLayer(plotPointLayerGroup)) {
+        map.removeLayer(plotPointLayerGroup)
+      }
     }
-  }, [plots, selectedPlotId, onSelectPlot, dataBaseUrl])
-
-  useEffect(() => {
-    if (!leafletMapRef.current || !selectedPlotId) return
-
-    const allotmentId = selectedPlotId.split('_')[0]
-    const latLng = pointLookupRef.current.get(allotmentId)
-
-    if (latLng) {
-      leafletMapRef.current.flyTo(latLng, 13, {
-        duration: 0.8,
-      })
-    }
-  }, [selectedPlotId])
+  }, [plots, selectedAllotmentId, onSelectAllotment, dataBaseUrl])
 
   return (
     <div
-      ref={mapRef}
       style={{
+        position: 'relative',
         height: '420px',
         width: '100%',
         borderRadius: '12px',
         overflow: 'hidden',
       }}
-    />
+    >
+      <button
+        onClick={handleResetView}
+        style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          zIndex: 1000,
+          background: 'white',
+          border: '1px solid #d1d5db',
+          borderRadius: '8px',
+          padding: '6px 10px',
+          fontSize: '13px',
+          cursor: 'pointer',
+        }}
+      >
+        Reset view
+      </button>
+
+      <div
+        ref={mapRef}
+        style={{
+          height: '100%',
+          width: '100%',
+        }}
+      />
+    </div>
   )
 }

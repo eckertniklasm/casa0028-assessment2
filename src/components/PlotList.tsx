@@ -12,19 +12,27 @@ type Props = {
   plots: Plot[]
   selectedPlotId: string | null
   onSelectPlot: (plot: Plot) => void
+  title?: string
+  emptyMessage?: string
 }
 
-export default function PlotList({ plots, selectedPlotId, onSelectPlot }: Props) {
+export default function PlotList({
+  plots,
+  selectedPlotId,
+  onSelectPlot,
+  title = 'Plots in selected allotment',
+  emptyMessage = 'Click an allotment polygon to view its plots.',
+}: Props) {
   if (plots.length === 0) {
-    return <p>No plot data loaded yet.</p>
+    return <p>{emptyMessage}</p>
   }
 
   return (
     <div style={{ marginTop: '20px' }}>
-      <h3>Sample Plot Data</h3>
+      <h3>{title}</h3>
       <p>Number of records: {plots.length}</p>
 
-      {plots.slice(0, 5).map((plot) => {
+      {plots.map((plot) => {
         const isSelected = plot.plot_id === selectedPlotId
 
         return (
@@ -40,10 +48,18 @@ export default function PlotList({ plots, selectedPlotId, onSelectPlot }: Props)
               cursor: 'pointer',
             }}
           >
-            <p><strong>Plot ID:</strong> {plot.plot_id}</p>
-            <p><strong>Owner:</strong> {plot.owner_name}</p>
-            <p><strong>Donate:</strong> {plot.willing_to_donate ? 'Yes' : 'No'}</p>
-            <p><strong>Drop-off:</strong> {plot.willing_dropoff ? 'Yes' : 'No'}</p>
+            <p>
+              <strong>Plot ID:</strong> {plot.plot_id}
+            </p>
+            <p>
+              <strong>Owner:</strong> {plot.owner_name}
+            </p>
+            <p>
+              <strong>Donate:</strong> {plot.willing_to_donate ? 'Yes' : 'No'}
+            </p>
+            <p>
+              <strong>Drop-off:</strong> {plot.willing_dropoff ? 'Yes' : 'No'}
+            </p>
           </div>
         )
       })}
