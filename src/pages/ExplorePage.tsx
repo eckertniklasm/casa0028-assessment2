@@ -465,7 +465,6 @@ export default function ExplorePage() {
         <DetailPanel
           mode={mode}
           selectedAllotmentId={selectedAllotmentId}
-          selectedAllotmentPlots={selectedAllotmentPlots}
           selectedPlot={selectedPlot}
           selectedCrops={selectedCrops}
           selectedAway={selectedAway}
