@@ -104,7 +104,7 @@ export default function DetailPanel({
           <p><strong>Max travel (km):</strong> {selectedPlot.max_travel_km ?? 'N/A'}</p>
           <p><strong>Max travel (min):</strong> {selectedPlot.max_travel_min ?? 'N/A'}</p>
 
-          <div style={{ marginTop: '20px' }}>
+          {/* <div style={{ marginTop: '20px' }}>
             <h4>Plots in this allotment</h4>
 
             {selectedAllotmentPlots.length === 0 ? (
@@ -116,7 +116,7 @@ export default function DetailPanel({
                 ))}
               </ul>
             )}
-          </div>
+          </div> */}
 
           {mode === 'food' && (
             <div style={{ marginTop: '20px' }}>

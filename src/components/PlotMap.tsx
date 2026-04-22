@@ -52,7 +52,7 @@ type PlotPointsGeoJsonData = {
 type Props = {
   plots: Plot[]
   selectedAllotmentId: string | null
-  onSelectAllotment: (allotmentId: string) => void
+  onSelectAllotment: (allotmentId: string | null) => void
 }
 
 const POLYGON_MIN_ZOOM = 13
@@ -79,6 +79,7 @@ export default function PlotMap({
   const plotPointLayerGroupRef = useRef<L.LayerGroup | null>(null)
   const allVisibleBoundsRef = useRef<L.LatLngBounds | null>(null)
   const plotPointsDataRef = useRef<PlotPointsGeoJsonData | null>(null)
+  const hasInitializedViewRef = useRef(false)
 
   const handleResetView = () => {
     const map = leafletMapRef.current
@@ -155,7 +156,17 @@ export default function PlotMap({
       }
     }
 
+    const handleMapBackgroundClick = () => {
+      onSelectAllotment(null)
+
+      const bounds = allVisibleBoundsRef.current
+      if (bounds && bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20] })
+      }
+    }
+
     map.on('zoomend', syncRepresentationWithZoom)
+    map.on('click', handleMapBackgroundClick)
 
     const allotmentPlotMap = new Map<string, Plot[]>()
 
@@ -196,6 +207,10 @@ export default function PlotMap({
           weight: 1,
           fillColor: '#f97316',
           fillOpacity: 0.95,
+        })
+
+        plotPointMarker.on('click', (event) => {
+          L.DomEvent.stopPropagation(event)
         })
 
         plotPointMarker.bindPopup(`<strong>Plot ID:</strong> ${plotId}`)
@@ -266,8 +281,17 @@ export default function PlotMap({
               fillOpacity: isSelected ? 0.5 : 0.28,
             },
             onEachFeature: (_geoFeature, leafletLayer) => {
-              leafletLayer.on('click', () => {
-                onSelectAllotment(allotmentId)
+              leafletLayer.on('click', (event) => {
+                L.DomEvent.stopPropagation(event)
+
+                const nextAllotmentId =
+                  selectedAllotmentId === allotmentId ? null : allotmentId
+
+                onSelectAllotment(nextAllotmentId)
+
+                if (!nextAllotmentId) {
+                  return
+                }
 
                 if ('getBounds' in leafletLayer) {
                   const clickedBounds = (leafletLayer as L.FeatureGroup).getBounds()
@@ -280,9 +304,9 @@ export default function PlotMap({
                 }
               })
 
-              leafletLayer.bindPopup(
-                `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
-              )
+              // leafletLayer.bindPopup(
+              //   `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
+              // )
             },
           })
 
@@ -303,8 +327,17 @@ export default function PlotMap({
             fillOpacity: isSelected ? 0.9 : 0.75,
           })
 
-          pointMarker.on('click', () => {
-            onSelectAllotment(allotmentId)
+          pointMarker.on('click', (event) => {
+            L.DomEvent.stopPropagation(event)
+
+            const nextAllotmentId =
+              selectedAllotmentId === allotmentId ? null : allotmentId
+
+            onSelectAllotment(nextAllotmentId)
+
+            if (!nextAllotmentId) {
+              return
+            }
 
             const clickedBounds = allotmentBoundsById.get(allotmentId)
             if (clickedBounds && clickedBounds.isValid()) {
@@ -315,9 +348,9 @@ export default function PlotMap({
             }
           })
 
-          pointMarker.bindPopup(
-            `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
-          )
+          // pointMarker.bindPopup(
+          //   `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
+          // )
 
           pointMarker.addTo(pointLayerGroup)
         })
@@ -325,8 +358,9 @@ export default function PlotMap({
         allVisibleBoundsRef.current = bounds
         syncRepresentationWithZoom()
 
-        if (bounds && !isCancelled && !selectedAllotmentId) {
+        if (bounds && !isCancelled && !hasInitializedViewRef.current) {
           map.fitBounds(bounds, { padding: [20, 20] })
+          hasInitializedViewRef.current = true
         }
 
         ensurePlotPointsData()
@@ -361,6 +395,7 @@ export default function PlotMap({
       isCancelled = true
       controller.abort()
       map.off('zoomend', syncRepresentationWithZoom)
+      map.off('click', handleMapBackgroundClick)
 
       if (map.hasLayer(polygonLayerGroup)) {
         map.removeLayer(polygonLayerGroup)

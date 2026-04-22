@@ -48,9 +48,9 @@ export default function PlotList({
               cursor: 'pointer',
             }}
           >
-            <p>
+            {/* <p>
               <strong>Plot ID:</strong> {plot.plot_id}
-            </p>
+            </p> */}
             <p>
               <strong>Owner:</strong> {plot.owner_name}
             </p>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ModeSwitcher from '../components/ModeSwitcher'
 import FilterPanel from '../components/FilterPanel'
 import DetailPanel from '../components/DetailPanel'
@@ -62,8 +62,20 @@ type WorkshopRecord = {
   workshops: Workshop[]
 }
 
+type AllotmentFeature = {
+  properties?: {
+    id?: string | number
+    name?: string | null
+  }
+}
+
+type AllotmentsGeoJson = {
+  features?: AllotmentFeature[]
+}
+
 export default function ExplorePage() {
   const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
+  const mapSectionRef = useRef<HTMLDivElement | null>(null)
 
   const [mode, setMode] = useState('food')
   const [plots, setPlots] = useState<Plot[]>([])
@@ -77,6 +89,7 @@ export default function ExplorePage() {
   const [awayData, setAwayData] = useState<AwayRecord[]>([])
   const [collaborationData, setCollaborationData] = useState<CollaborationRecord[]>([])
   const [workshopsData, setWorkshopsData] = useState<WorkshopRecord[]>([])
+  const [allotmentNameById, setAllotmentNameById] = useState<Record<string, string>>({})
 
   const [selectedCrop, setSelectedCrop] = useState('All')
   const [selectedDonationType, setSelectedDonationType] = useState('All')
@@ -137,6 +150,28 @@ export default function ExplorePage() {
       })
       .catch((err) => {
         console.error('Failed to load workshops data:', err)
+      })
+  }, [dataBaseUrl])
+
+  useEffect(() => {
+    fetch(`${dataBaseUrl}allotments_polygons.geojson`)
+      .then((res) => res.json())
+      .then((data: AllotmentsGeoJson) => {
+        const nextMap: Record<string, string> = {}
+
+        ;(data.features || []).forEach((feature) => {
+          const idRaw = feature.properties?.id
+          const nameRaw = feature.properties?.name
+
+          if (idRaw === undefined || !nameRaw) return
+
+          nextMap[String(idRaw)] = nameRaw
+        })
+
+        setAllotmentNameById(nextMap)
+      })
+      .catch((err) => {
+        console.error('Failed to load allotment names:', err)
       })
   }, [dataBaseUrl])
 
@@ -263,9 +298,20 @@ export default function ExplorePage() {
     const allotmentId = plot.plot_id.split('_')[0]
     setSelectedAllotmentId(allotmentId)
     setSelectedPlot(plot)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
   }
 
-  const handleSelectAllotment = (allotmentId: string) => {
+  const handleSelectAllotment = (allotmentId: string | null) => {
+    if (!allotmentId) {
+      setSelectedAllotmentId(null)
+      setSelectedPlot(null)
+      return
+    }
+
     setSelectedAllotmentId(allotmentId)
 
     const nextPlot = filteredPlots.find((plot) =>
@@ -306,6 +352,10 @@ export default function ExplorePage() {
           `Visible plots: ${filteredPlots.length}`,
           `Visible allotments on map: ${visibleAllotmentCount}`,
         ]
+
+  const selectedAllotmentDisplayName = selectedAllotmentId
+    ? allotmentNameById[selectedAllotmentId] || selectedAllotmentId
+    : null
 
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
@@ -371,7 +421,7 @@ export default function ExplorePage() {
           </div>
 
           {!loading && (
-            <div style={{ marginTop: '16px' }}>
+            <div ref={mapSectionRef} style={{ marginTop: '16px' }}>
               <PlotMap
                 plots={filteredPlots}
                 selectedAllotmentId={selectedAllotmentId}
@@ -403,7 +453,7 @@ export default function ExplorePage() {
                 onSelectPlot={handleSelectPlot}
                 title={
                   selectedAllotmentId
-                    ? `Plots in allotment ${selectedAllotmentId}`
+                    ? `Plots in allotment ${selectedAllotmentDisplayName}`
                     : 'Plots in selected allotment'
                 }
                 emptyMessage="Click an allotment polygon to view its plots."
