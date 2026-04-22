@@ -26,7 +26,6 @@ export default function FilterPanel({
         padding: '16px',
         borderRadius: '12px',
         border: '1px solid #ddd',
-        minHeight: '420px',
       }}
     >
       <h3>Filters</h3>

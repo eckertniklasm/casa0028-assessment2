@@ -81,19 +81,23 @@ export default function DetailPanel({
         padding: '16px',
         borderRadius: '12px',
         border: '1px solid #ddd',
-        minHeight: '420px',
+        height: '100%',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <h3>Detail Panel</h3>
-      <p><strong>Current mode:</strong> {mode}</p>
+      {/* <p><strong>Current mode:</strong> {mode}</p>
       <p>
         <strong>Selected allotment:</strong> {selectedAllotmentId || 'None'}
-      </p>
+      </p> */}
 
-      {!selectedPlot ? (
-        <p>Select an allotment polygon to inspect its plots.</p>
-      ) : (
-        <div style={{ marginTop: '16px' }}>
+      <div style={{ marginTop: '16px', overflowY: 'auto', minHeight: 0, flex: 1 }}>
+        {!selectedPlot ? (
+          <p>Select an allotment polygon to inspect its plots.</p>
+        ) : (
+          <div>
           <p><strong>Plot ID:</strong> {selectedPlot.plot_id}</p>
           <p><strong>Owner:</strong> {selectedPlot.owner_name}</p>
           <p><strong>Email:</strong> {selectedPlot.owner_email}</p>
@@ -250,8 +254,9 @@ export default function DetailPanel({
               </div>
             </div>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

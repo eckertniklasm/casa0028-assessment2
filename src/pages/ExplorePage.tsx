@@ -372,65 +372,40 @@ export default function ExplorePage() {
           marginTop: '24px',
         }}
       >
-        <FilterPanel
-          mode={mode}
-          cropOptions={cropOptions}
-          selectedCrop={selectedCrop}
-          onCropChange={setSelectedCrop}
-          selectedDonationType={selectedDonationType}
-          onDonationTypeChange={setSelectedDonationType}
-          selectedVolunteerType={selectedVolunteerType}
-          onVolunteerTypeChange={setSelectedVolunteerType}
-        />
-
         <div
           style={{
-            background: 'white',
-            padding: '16px',
-            borderRadius: '12px',
-            border: '1px solid #ddd',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            height: 'calc(100vh - 160px)',
             minHeight: '420px',
+            overflow: 'hidden',
           }}
         >
-          <h3>{browseTitle}</h3>
-          <p style={{ marginTop: '8px', color: '#444' }}>{browseDescription}</p>
+          <FilterPanel
+            mode={mode}
+            cropOptions={cropOptions}
+            selectedCrop={selectedCrop}
+            onCropChange={setSelectedCrop}
+            selectedDonationType={selectedDonationType}
+            onDonationTypeChange={setSelectedDonationType}
+            selectedVolunteerType={selectedVolunteerType}
+            onVolunteerTypeChange={setSelectedVolunteerType}
+          />
 
           <div
             style={{
+              background: 'white',
+              padding: '16px',
+              borderRadius: '12px',
+              border: '1px solid #ddd',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
               display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-              marginTop: '16px',
-              marginBottom: '16px',
+              flexDirection: 'column',
             }}
           >
-            {summaryItems.map((item) => (
-              <span
-                key={item}
-                style={{
-                  background: '#f3f4f6',
-                  border: '1px solid #ddd',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '14px',
-                }}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-
-          {!loading && (
-            <div ref={mapSectionRef} style={{ marginTop: '16px' }}>
-              <PlotMap
-                plots={filteredPlots}
-                selectedAllotmentId={selectedAllotmentId}
-                onSelectAllotment={handleSelectAllotment}
-              />
-            </div>
-          )}
-
-          <div style={{ marginTop: '20px' }}>
             {loading ? (
               <p>Loading plot data...</p>
             ) : selectedAllotmentId && selectedAllotmentPlots.length === 0 ? (
@@ -462,15 +437,88 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        <DetailPanel
-          mode={mode}
-          selectedAllotmentId={selectedAllotmentId}
-          selectedPlot={selectedPlot}
-          selectedCrops={selectedCrops}
-          selectedAway={selectedAway}
-          selectedCollaboration={selectedCollaboration}
-          selectedWorkshops={selectedWorkshops}
-        />
+        <div
+          style={{
+            background: 'white',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid #ddd',
+            height: 'calc(100vh - 160px)',
+            minHeight: '420px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <h3>{browseTitle}</h3>
+          <p style={{ marginTop: '8px', color: '#444' }}>{browseDescription}</p>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              marginTop: '16px',
+              marginBottom: '16px',
+            }}
+          >
+            {summaryItems.map((item) => (
+              <span
+                key={item}
+                style={{
+                  background: '#f3f4f6',
+                  border: '1px solid #ddd',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '14px',
+                }}
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+
+          {!loading && (
+            <div
+              ref={mapSectionRef}
+              style={{
+                marginTop: '16px',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <PlotMap
+                plots={filteredPlots}
+                selectedAllotmentId={selectedAllotmentId}
+                onSelectAllotment={handleSelectAllotment}
+              />
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            height: 'calc(100vh - 160px)',
+            minHeight: '420px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <DetailPanel
+              mode={mode}
+              selectedAllotmentId={selectedAllotmentId}
+              selectedPlot={selectedPlot}
+              selectedCrops={selectedCrops}
+              selectedAway={selectedAway}
+              selectedCollaboration={selectedCollaboration}
+              selectedWorkshops={selectedWorkshops}
+            />
+          </div>
+        </div>
+
       </div>
     </div>
   )

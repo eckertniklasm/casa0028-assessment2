@@ -415,7 +415,7 @@ export default function PlotMap({
     <div
       style={{
         position: 'relative',
-        height: '420px',
+        height: '100%',
         width: '100%',
         borderRadius: '12px',
         overflow: 'hidden',
