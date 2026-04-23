@@ -136,3 +136,35 @@ button {
   border: 3px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
 }
+
+.foodbank-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #f97316;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+  font-size: 15px;
+}
+
+.foodbank-pin--selected {
+  background: #1f4d45;
+}
+
+.foodbank-cluster {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #1f4d45;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  font-weight: 700;
+}

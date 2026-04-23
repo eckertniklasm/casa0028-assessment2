@@ -295,8 +295,8 @@ export default function FilterPanel({
         </>
       )}
 
-      {/* ── FOOD (donate / receive) ── */}
-      {(mode === 'donate' || mode === 'receive') && (
+      {/* ── FOOD (receive only) ── */}
+      {mode === 'receive' && (
         <>
           <div style={section}>
             <label style={label}>Crop type</label>
@@ -325,6 +325,12 @@ export default function FilterPanel({
             </select>
           </div>
         </>
+      )}
+
+      {mode === 'donate' && (
+        <div style={{ ...section, fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+          Browse nearby foodbanks and use the location filter to narrow the map.
+        </div>
       )}
     </div>
   )

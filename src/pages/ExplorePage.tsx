@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import FilterPanel from '../components/FilterPanel'
+import FoodbankMap from '../components/FoodbankMap'
 import PlotMap from '../components/PlotMap'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -70,6 +71,29 @@ type AllotmentFeature = {
 }
 
 type AllotmentsGeoJson = { features?: AllotmentFeature[] }
+
+type FoodbankFeature = {
+  id: string
+  properties?: {
+    name?: string
+    slug?: string
+    address?: string
+    url?: string
+    network?: string
+    email?: string | null
+    telephone?: string | null
+    foodbank?: string
+    foodbank_slug?: string
+    foodbank_url?: string
+    parliamentary_constituency?: string
+  }
+  geometry?: {
+    type?: 'Point'
+    coordinates?: [number, number]
+  }
+}
+
+type FoodbanksGeoJson = { features?: Array<Omit<FoodbankFeature, 'id'>> }
 
 type ParticipateFilters = {
   opportunityType: string
@@ -142,8 +166,10 @@ export default function ExplorePage({ mode }: Props) {
   // ── Core data ──────────────────────────────────────────────────────────────
   const [plots, setPlots] = useState<Plot[]>([])
   const [loading, setLoading] = useState(true)
+  const [foodbanksLoading, setFoodbanksLoading] = useState(true)
   const [cropsData, setCropsData] = useState<CropRecord[]>([])
   const [allotmentNameById, setAllotmentNameById] = useState<Record<string, string>>({})
+  const [foodbanks, setFoodbanks] = useState<FoodbankFeature[]>([])
 
   // ── Participate filter data ────────────────────────────────────────────────
   const [awayFilterData, setAwayFilterData] = useState<AwayFilterRecord[]>([])
@@ -165,6 +191,7 @@ export default function ExplorePage({ mode }: Props) {
   // ── Selection state ────────────────────────────────────────────────────────
   const [selectedAllotmentId, setSelectedAllotmentId] = useState<string | null>(null)
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
+  const [selectedFoodbankId, setSelectedFoodbankId] = useState<string | null>(null)
 
   // ── Food filter state ──────────────────────────────────────────────────────
   const [selectedCrop, setSelectedCrop] = useState('All')
@@ -218,53 +245,60 @@ export default function ExplorePage({ mode }: Props) {
   }, [dataBaseUrl])
 
   useEffect(() => {
+    if (mode === 'participate') return
     fetch(`${dataBaseUrl}plots_crops.json`)
       .then((r) => r.json())
       .then(setCropsData)
       .catch((err) => console.error('Failed to load crops data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode])
 
   useEffect(() => {
+    if (mode !== 'participate') return
     fetch(`${dataBaseUrl}plots_away_filter.json`)
       .then((r) => r.json())
       .then(setAwayFilterData)
       .catch((err) => console.error('Failed to load away filter data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode])
 
   useEffect(() => {
+    if (mode !== 'participate' || !selectedAllotmentId || awayDetailsData.length > 0) return
     fetch(`${dataBaseUrl}plots_away_details.json`)
       .then((r) => r.json())
       .then(setAwayDetailsData)
       .catch((err) => console.error('Failed to load away details data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode, selectedAllotmentId, awayDetailsData.length])
 
   useEffect(() => {
+    if (mode !== 'participate') return
     fetch(`${dataBaseUrl}plots_collaboration_filter.json`)
       .then((r) => r.json())
       .then(setCollabFilterData)
       .catch((err) => console.error('Failed to load collaboration filter data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode])
 
   useEffect(() => {
+    if (mode !== 'participate' || !selectedAllotmentId || collabDetailsData.length > 0) return
     fetch(`${dataBaseUrl}plots_collaboration_details.json`)
       .then((r) => r.json())
       .then(setCollabDetailsData)
       .catch((err) => console.error('Failed to load collaboration details data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode, selectedAllotmentId, collabDetailsData.length])
 
   useEffect(() => {
+    if (mode !== 'participate') return
     fetch(`${dataBaseUrl}plots_workshops_filter.json`)
       .then((r) => r.json())
       .then(setWorkshopFilterData)
       .catch((err) => console.error('Failed to load workshops filter data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode])
 
   useEffect(() => {
+    if (mode !== 'participate' || !selectedAllotmentId || workshopDetailsData.length > 0) return
     fetch(`${dataBaseUrl}plots_workshops_details.json`)
       .then((r) => r.json())
       .then(setWorkshopDetailsData)
       .catch((err) => console.error('Failed to load workshops details data:', err))
-  }, [dataBaseUrl])
+  }, [dataBaseUrl, mode, selectedAllotmentId, workshopDetailsData.length])
 
   useEffect(() => {
     fetch(`${dataBaseUrl}allotments_polygons.geojson`)
@@ -297,6 +331,23 @@ export default function ExplorePage({ mode }: Props) {
       .catch((err) => console.error('Failed to load allotment points:', err))
   }, [dataBaseUrl])
 
+  useEffect(() => {
+    fetch(`${dataBaseUrl}foodbanks_london.geojson`)
+      .then((r) => r.json())
+      .then((data: FoodbanksGeoJson) => {
+        const nextFoodbanks = (data.features || []).map((feature, index) => ({
+          ...feature,
+          id: `${feature.properties?.slug ?? feature.properties?.name ?? 'foodbank'}-${index}`,
+        }))
+        setFoodbanks(nextFoodbanks)
+        setFoodbanksLoading(false)
+      })
+      .catch((err) => {
+        console.error('Failed to load foodbanks data:', err)
+        setFoodbanksLoading(false)
+      })
+  }, [dataBaseUrl])
+
   const handlePostcodeSearch = async () => {
     const cleaned = postcode.trim().replace(/\s+/g, '')
     if (!cleaned) return
@@ -327,6 +378,24 @@ export default function ExplorePage({ mode }: Props) {
     const all = cropsData.flatMap((item) => item.crops.map((c) => c.crop))
     return Array.from(new Set(all)).sort()
   }, [cropsData])
+
+  const filteredFoodbanks = useMemo(() => {
+    if (mode !== 'donate') return []
+
+    let result = foodbanks
+
+    if (userCoords) {
+      result = result.filter((foodbank) => {
+        const coords = foodbank.geometry?.coordinates
+        if (!coords || coords.length < 2) return false
+        const [lng, lat] = coords
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
+        return haversineKm(userCoords.lat, userCoords.lng, lat, lng) <= radiusKm
+      })
+    }
+
+    return result
+  }, [mode, foodbanks, userCoords, radiusKm])
 
   // ── Filtered plots ─────────────────────────────────────────────────────────
   const filteredPlots = useMemo(() => {
@@ -602,6 +671,11 @@ export default function ExplorePage({ mode }: Props) {
     }))
   }, [selectedAllotmentId, selectedAllotmentPlots, cropsData, mode])
 
+  const selectedFoodbank = useMemo(() => {
+    if (mode !== 'donate' || !selectedFoodbankId) return null
+    return foodbanks.find((foodbank) => foodbank.id === selectedFoodbankId) ?? null
+  }, [mode, foodbanks, selectedFoodbankId])
+
   // ── Selection handlers ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedAllotmentId) { setSelectedPlot(null); return }
@@ -618,6 +692,10 @@ export default function ExplorePage({ mode }: Props) {
     setSelectedPlot(next ?? null)
   }
 
+  const handleSelectFoodbank = (foodbankId: string | null) => {
+    setSelectedFoodbankId(foodbankId)
+  }
+
   const { opportunityType } = participateFilters
 
   const selectedAllotmentDisplayName = selectedAllotmentId
@@ -625,15 +703,173 @@ export default function ExplorePage({ mode }: Props) {
     : null
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (mode === 'donate') {
+    return (
+      <div style={{ padding: '24px', fontFamily: 'Arial' }}>
+        {/* <h1>Donate Food</h1> */}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: selectedFoodbankId ? '280px 1fr 300px' : '280px 1fr',
+            gap: '16px',
+            marginTop: '24px',
+            height: 'calc(100vh - 140px)',
+            minHeight: '480px',
+          }}
+        >
+          <div style={{ overflowY: 'auto' }}>
+            <FilterPanel
+              mode={mode}
+              cropOptions={cropOptions}
+              selectedCrop={selectedCrop}
+              onCropChange={setSelectedCrop}
+              selectedDonationType={selectedDonationType}
+              onDonationTypeChange={setSelectedDonationType}
+              participateFilters={participateFilters}
+              onParticipateFilterChange={handleParticipateFilterChange}
+              postcode={postcode}
+              onPostcodeChange={setPostcode}
+              onPostcodeSearch={handlePostcodeSearch}
+              postcodeError={postcodeError}
+              userCoords={userCoords}
+              onClearLocation={handleClearLocation}
+              radiusKm={radiusKm}
+              onRadiusChange={setRadiusKm}
+            />
+          </div>
+
+          {!foodbanksLoading && (
+            <div ref={mapSectionRef} style={{ minHeight: 0, overflow: 'hidden' }}>
+              <FoodbankMap
+                foodbanks={filteredFoodbanks}
+                selectedFoodbankId={selectedFoodbankId}
+                onSelectFoodbank={handleSelectFoodbank}
+                userCoords={userCoords}
+                radiusKm={radiusKm}
+              />
+            </div>
+          )}
+
+          {selectedFoodbankId && (
+            <div
+              style={{
+                background: 'white',
+                borderRadius: '12px',
+                border: '1px solid #ddd',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ padding: '16px', borderBottom: '1px solid #eee' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 4px 0' }}>
+                      {selectedFoodbank?.properties?.name ?? 'Selected foodbank'}
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+                      {filteredFoodbanks.length} nearby foodbank
+                      {filteredFoodbanks.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleSelectFoodbank(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '18px',
+                      color: '#6b7280',
+                      lineHeight: 1,
+                      padding: '2px 4px',
+                    }}
+                    aria-label="Close panel"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+                {!selectedFoodbank ? (
+                  <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                    Select a foodbank marker to view contact details.
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      marginBottom: '8px',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      background: '#f9fafb',
+                      fontSize: '13px',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: '6px', color: '#111827' }}>
+                      {selectedFoodbank.properties?.name ?? 'Foodbank'}
+                    </div>
+                    {selectedFoodbank.properties?.foodbank && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <strong>Foodbank:</strong> {selectedFoodbank.properties.foodbank}
+                      </div>
+                    )}
+                    {selectedFoodbank.properties?.network && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <strong>Network:</strong> {selectedFoodbank.properties.network}
+                      </div>
+                    )}
+                    {selectedFoodbank.properties?.address && (
+                      <div style={{ marginBottom: '4px', whiteSpace: 'pre-line' }}>
+                        <strong>Address:</strong> {selectedFoodbank.properties.address}
+                      </div>
+                    )}
+                    {selectedFoodbank.properties?.telephone && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <strong>Telephone:</strong> {selectedFoodbank.properties.telephone}
+                      </div>
+                    )}
+                    {selectedFoodbank.properties?.email && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <strong>Email:</strong> {selectedFoodbank.properties.email}
+                      </div>
+                    )}
+                    {selectedFoodbank.properties?.parliamentary_constituency && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <strong>Constituency:</strong> {selectedFoodbank.properties.parliamentary_constituency}
+                      </div>
+                    )}
+                    {selectedFoodbank.properties?.url && (
+                      <div style={{ marginTop: '8px' }}>
+                        <a
+                          href={selectedFoodbank.properties.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#4f46e5' }}
+                        >
+                          Open foodbank page
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ padding: '24px', fontFamily: 'Arial' }}>
-      <h1>
+      {/* <h1>
         {mode === 'participate'
           ? 'Participate'
-          : mode === 'donate'
-          ? 'Donate Food'
           : 'Receive Food'}
-      </h1>
+      </h1> */}
 
       <div
         style={{
