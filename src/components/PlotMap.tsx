@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster'
@@ -90,6 +90,7 @@ export default function PlotMap({
   radiusKm = 5,
 }: Props) {
   const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
+  const [isMapLoading, setIsMapLoading] = useState(true)
 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
@@ -191,6 +192,7 @@ export default function PlotMap({
       clusterGroupRef.current = null
       plotPointLayerGroupRef.current = null
       locationLayerGroupRef.current = null
+      setIsMapLoading(true)
     }
   }, [])
 
@@ -230,10 +232,6 @@ export default function PlotMap({
 
     const handleMapBackgroundClick = () => {
       onSelectAllotment(null)
-      const bounds = allVisibleBoundsRef.current
-      if (bounds && bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [20, 20] })
-      }
     }
 
     map.on('zoomend', syncPolygonVisibility)
@@ -407,8 +405,12 @@ export default function PlotMap({
         syncPolygonVisibility()
 
         if (bounds && !isCancelled && !hasInitializedViewRef.current) {
-          map.fitBounds(bounds, { padding: [20, 20] })
+          map.fitBounds(bounds, { padding: [24, 24] })
           hasInitializedViewRef.current = true
+        }
+
+        if (!isCancelled) {
+          setIsMapLoading(false)
         }
 
         ensurePlotPointsData()
@@ -430,6 +432,7 @@ export default function PlotMap({
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         console.error('Failed to load allotment polygons geojson:', err)
+        setIsMapLoading(false)
       })
 
     return () => {
@@ -457,6 +460,39 @@ export default function PlotMap({
         overflow: 'hidden',
       }}
     >
+      {isMapLoading && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(255, 255, 255, 0.72)',
+            backdropFilter: 'blur(1px)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#1f4d45',
+              background: 'white',
+              border: '1px solid #d1d5db',
+              borderRadius: '999px',
+              padding: '8px 12px',
+            }}
+          >
+            <span aria-hidden="true">⏳</span>
+            <span>Loading map…</span>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={handleResetView}
         style={{
