@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
-import proj4 from 'proj4'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import proj4 from 'proj4'
 
 type Plot = {
   plot_id: string
@@ -51,8 +54,11 @@ type PlotPointsGeoJsonData = {
 
 type Props = {
   plots: Plot[]
+  allotmentOpportunityCount: Map<string, number>
   selectedAllotmentId: string | null
   onSelectAllotment: (allotmentId: string | null) => void
+  userCoords?: { lat: number; lng: number } | null
+  radiusKm?: number
 }
 
 const POLYGON_MIN_ZOOM = 13
@@ -65,57 +71,135 @@ const EPSG27700 =
 
 const WGS84 = 'EPSG:4326'
 
+const makeBubbleIcon = (count: number, variant: 'allotment' | 'selected' | 'cluster') => {
+  const size = variant === 'cluster' ? 48 : 36
+  return L.divIcon({
+    html: `<div class="map-bubble map-bubble--${variant}">${count}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
 export default function PlotMap({
   plots,
+  allotmentOpportunityCount,
   selectedAllotmentId,
   onSelectAllotment,
+  userCoords,
+  radiusKm = 5,
 }: Props) {
   const dataBaseUrl = `${import.meta.env.BASE_URL}data/`
 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
   const polygonLayerGroupRef = useRef<L.LayerGroup | null>(null)
-  const pointLayerGroupRef = useRef<L.LayerGroup | null>(null)
+  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null)
   const plotPointLayerGroupRef = useRef<L.LayerGroup | null>(null)
   const allVisibleBoundsRef = useRef<L.LatLngBounds | null>(null)
+  const allotmentsGeoDataRef = useRef<GeoJsonData | null>(null)
   const plotPointsDataRef = useRef<PlotPointsGeoJsonData | null>(null)
   const hasInitializedViewRef = useRef(false)
+  const pendingFitBoundsRef = useRef<L.LatLngBounds | null>(null)
+  const locationLayerGroupRef = useRef<L.LayerGroup | null>(null)
+
+  // After selectedAllotmentId changes, the grid layout re-renders (panel opens/closes).
+  // Wait a tick for the map container to resize, then invalidate + fit.
+  useEffect(() => {
+    const map = leafletMapRef.current
+    if (!map) return
+
+    const id = setTimeout(() => {
+      map.invalidateSize()
+      if (pendingFitBoundsRef.current) {
+        map.fitBounds(pendingFitBoundsRef.current)
+        pendingFitBoundsRef.current = null
+      }
+    }, 50)
+
+    return () => clearTimeout(id)
+  }, [selectedAllotmentId])
+
+  // Location pin + radius circle
+  useEffect(() => {
+    const map = leafletMapRef.current
+    const layer = locationLayerGroupRef.current
+    if (!map || !layer) return
+
+    layer.clearLayers()
+
+    if (!userCoords) return
+
+    L.circleMarker([userCoords.lat, userCoords.lng], {
+      radius: 8,
+      color: '#1f4d45',
+      weight: 3,
+      fillColor: 'white',
+      fillOpacity: 1,
+    }).addTo(layer)
+
+    L.circle([userCoords.lat, userCoords.lng], {
+      radius: radiusKm * 1000,
+      color: '#1f4d45',
+      weight: 2,
+      dashArray: '6 5',
+      fillColor: '#1f4d45',
+      fillOpacity: 0.05,
+    }).addTo(layer)
+  }, [userCoords, radiusKm])
 
   const handleResetView = () => {
     const map = leafletMapRef.current
     const bounds = allVisibleBoundsRef.current
-
     if (map && bounds && bounds.isValid()) {
       map.fitBounds(bounds, { padding: [20, 20] })
     }
   }
 
+  // Init: create map + cluster group once
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return
 
     const map = L.map(mapRef.current).setView([51.5074, -0.1278], 10)
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
 
     leafletMapRef.current = map
     polygonLayerGroupRef.current = L.layerGroup().addTo(map)
-    pointLayerGroupRef.current = L.layerGroup().addTo(map)
     plotPointLayerGroupRef.current = L.layerGroup().addTo(map)
+    locationLayerGroupRef.current = L.layerGroup().addTo(map)
+
+    const clusterGroup = (L as any).markerClusterGroup({
+      iconCreateFunction: (cluster: any) => {
+        const total = cluster
+          .getAllChildMarkers()
+          .reduce((sum: number, m: any) => sum + (m._plotCount || 0), 0)
+        return makeBubbleIcon(total, 'cluster')
+      },
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      spiderfyOnMaxZoom: false,
+      maxClusterRadius: 40,
+    }) as L.MarkerClusterGroup
+
+    clusterGroupRef.current = clusterGroup
+    map.addLayer(clusterGroup)
 
     return () => {
       map.remove()
       leafletMapRef.current = null
       polygonLayerGroupRef.current = null
-      pointLayerGroupRef.current = null
+      clusterGroupRef.current = null
       plotPointLayerGroupRef.current = null
+      locationLayerGroupRef.current = null
     }
   }, [])
 
+  // Main: populate layers when plots/selection change
   useEffect(() => {
     if (
       !leafletMapRef.current ||
       !polygonLayerGroupRef.current ||
-      !pointLayerGroupRef.current ||
+      !clusterGroupRef.current ||
       !plotPointLayerGroupRef.current
     ) {
       return
@@ -123,53 +207,39 @@ export default function PlotMap({
 
     const map = leafletMapRef.current
     const polygonLayerGroup = polygonLayerGroupRef.current
-    const pointLayerGroup = pointLayerGroupRef.current
+    const clusterGroup = clusterGroupRef.current
     const plotPointLayerGroup = plotPointLayerGroupRef.current
     const controller = new AbortController()
     let isCancelled = false
 
+    // Clear layer contents but keep the groups on the map
     polygonLayerGroup.clearLayers()
-    pointLayerGroup.clearLayers()
+    clusterGroup.clearLayers()
     plotPointLayerGroup.clearLayers()
 
-    const syncRepresentationWithZoom = () => {
-      const showPolygons = map.getZoom() >= POLYGON_MIN_ZOOM
+    // Ensure cluster group is on the map (may have been removed by a prior cleanup)
+    if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup)
 
-      if (showPolygons) {
-        if (!map.hasLayer(polygonLayerGroup)) {
-          map.addLayer(polygonLayerGroup)
-        }
-
-        if (map.hasLayer(pointLayerGroup)) {
-          map.removeLayer(pointLayerGroup)
-        }
-
-        return
-      }
-
-      if (!map.hasLayer(pointLayerGroup)) {
-        map.addLayer(pointLayerGroup)
-      }
-
-      if (map.hasLayer(polygonLayerGroup)) {
-        map.removeLayer(polygonLayerGroup)
+    const syncPolygonVisibility = () => {
+      if (map.getZoom() >= POLYGON_MIN_ZOOM) {
+        if (!map.hasLayer(polygonLayerGroup)) map.addLayer(polygonLayerGroup)
+      } else {
+        if (map.hasLayer(polygonLayerGroup)) map.removeLayer(polygonLayerGroup)
       }
     }
 
     const handleMapBackgroundClick = () => {
       onSelectAllotment(null)
-
       const bounds = allVisibleBoundsRef.current
       if (bounds && bounds.isValid()) {
         map.fitBounds(bounds, { padding: [20, 20] })
       }
     }
 
-    map.on('zoomend', syncRepresentationWithZoom)
+    map.on('zoomend', syncPolygonVisibility)
     map.on('click', handleMapBackgroundClick)
 
     const allotmentPlotMap = new Map<string, Plot[]>()
-
     plots.forEach((plot) => {
       const allotmentId = plot.plot_id.split('_')[0]
       const existing = allotmentPlotMap.get(allotmentId) || []
@@ -183,15 +253,14 @@ export default function PlotMap({
       const selectedPlots = allotmentPlotMap.get(selectedAllotmentId) || []
       if (selectedPlots.length === 0) return
 
-      const selectedPlotIds = new Set(selectedPlots.map((plot) => plot.plot_id))
+      const selectedPlotIds = new Set(selectedPlots.map((p) => p.plot_id))
       const pointData = plotPointsDataRef.current
       if (!pointData) return
 
       pointData.features.forEach((feature) => {
-        const featureAllotmentIdRaw = feature.properties?.allotment_id
         const featureAllotmentId =
-          featureAllotmentIdRaw !== undefined
-            ? String(featureAllotmentIdRaw)
+          feature.properties?.allotment_id !== undefined
+            ? String(feature.properties.allotment_id)
             : undefined
         const plotId = feature.properties?.plot_id
 
@@ -219,9 +288,7 @@ export default function PlotMap({
     }
 
     const ensurePlotPointsData = async () => {
-      if (plotPointsDataRef.current) {
-        return plotPointsDataRef.current
-      }
+      if (plotPointsDataRef.current) return plotPointsDataRef.current
 
       const response = await fetch(`${dataBaseUrl}plots_points.geojson`, {
         signal: controller.signal,
@@ -236,22 +303,29 @@ export default function PlotMap({
       return data
     }
 
-    fetch(`${dataBaseUrl}allotments_polygons.geojson`, {
-      signal: controller.signal,
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`Failed to fetch allotment polygons: ${res.status}`)
-        }
+    const ensureAllotmentsGeoData = async () => {
+      if (allotmentsGeoDataRef.current) return allotmentsGeoDataRef.current
 
-        return res.json()
+      const response = await fetch(`${dataBaseUrl}allotments_polygons.geojson`, {
+        signal: controller.signal,
       })
-      .then((geoData: GeoJsonData) => {
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch allotment polygons: ${response.status}`)
+      }
+
+      const data = (await response.json()) as GeoJsonData
+      allotmentsGeoDataRef.current = data
+      return data
+    }
+
+    ensureAllotmentsGeoData()
+      .then((geoData) => {
         if (
           isCancelled ||
           leafletMapRef.current !== map ||
           polygonLayerGroupRef.current !== polygonLayerGroup ||
-          pointLayerGroupRef.current !== pointLayerGroup ||
+          clusterGroupRef.current !== clusterGroup ||
           plotPointLayerGroupRef.current !== plotPointLayerGroup
         ) {
           return
@@ -273,6 +347,7 @@ export default function PlotMap({
           const isSelected =
             selectedAllotmentId !== null && selectedAllotmentId === allotmentId
 
+          // Polygon layer (shown at zoom >= POLYGON_MIN_ZOOM)
           const layer = L.geoJSON(feature as any, {
             style: {
               color: isSelected ? '#1f4d45' : '#4f46e5',
@@ -286,27 +361,15 @@ export default function PlotMap({
 
                 const nextAllotmentId =
                   selectedAllotmentId === allotmentId ? null : allotmentId
-
                 onSelectAllotment(nextAllotmentId)
 
-                if (!nextAllotmentId) {
-                  return
-                }
-
-                if ('getBounds' in leafletLayer) {
+                if (nextAllotmentId && 'getBounds' in leafletLayer) {
                   const clickedBounds = (leafletLayer as L.FeatureGroup).getBounds()
                   if (clickedBounds.isValid()) {
-                    map.fitBounds(clickedBounds, {
-                      padding: [24, 24],
-                      maxZoom: 16,
-                    })
+                    map.fitBounds(clickedBounds, { padding: [24, 24], maxZoom: 16 })
                   }
                 }
               })
-
-              // leafletLayer.bindPopup(
-              //   `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
-              // )
             },
           })
 
@@ -318,45 +381,30 @@ export default function PlotMap({
           allotmentBoundsById.set(allotmentId, featureBounds)
           bounds = bounds ? bounds.extend(featureBounds) : featureBounds
 
+          // Cluster bubble marker (always visible, clusters at low zoom)
           const center = featureBounds.getCenter()
-          const pointMarker = L.circleMarker(center, {
-            radius: isSelected ? 8 : 6,
-            color: isSelected ? '#1f4d45' : '#4f46e5',
-            weight: isSelected ? 2.5 : 2,
-            fillColor: isSelected ? '#a7f3d0' : '#c7d2fe',
-            fillOpacity: isSelected ? 0.9 : 0.75,
+          const oppCount = allotmentOpportunityCount.get(allotmentId) ?? matchedPlots.length
+          const bubbleMarker = L.marker(center, {
+            icon: makeBubbleIcon(oppCount, isSelected ? 'selected' : 'allotment'),
           })
+          ;(bubbleMarker as any)._plotCount = oppCount
 
-          pointMarker.on('click', (event) => {
+          bubbleMarker.on('click', (event) => {
             L.DomEvent.stopPropagation(event)
-
-            const nextAllotmentId =
-              selectedAllotmentId === allotmentId ? null : allotmentId
-
-            onSelectAllotment(nextAllotmentId)
-
-            if (!nextAllotmentId) {
-              return
-            }
 
             const clickedBounds = allotmentBoundsById.get(allotmentId)
             if (clickedBounds && clickedBounds.isValid()) {
-              map.fitBounds(clickedBounds, {
-                padding: [24, 24],
-                maxZoom: 16,
-              })
+              pendingFitBoundsRef.current = clickedBounds.pad(0.1)
             }
+
+            onSelectAllotment(allotmentId)
           })
 
-          // pointMarker.bindPopup(
-          //   `<strong>${feature.properties?.name || 'Allotment'}</strong><br/>Allotment ID: ${allotmentId}<br/>Visible plots: ${matchedPlots.length}`
-          // )
-
-          pointMarker.addTo(pointLayerGroup)
+          clusterGroup.addLayer(bubbleMarker)
         })
 
         allVisibleBoundsRef.current = bounds
-        syncRepresentationWithZoom()
+        syncPolygonVisibility()
 
         if (bounds && !isCancelled && !hasInitializedViewRef.current) {
           map.fitBounds(bounds, { padding: [20, 20] })
@@ -372,42 +420,30 @@ export default function PlotMap({
             ) {
               return
             }
-
             renderSelectedAllotmentPlotPoints()
           })
           .catch((err) => {
-            if (err instanceof DOMException && err.name === 'AbortError') {
-              return
-            }
-
+            if (err instanceof DOMException && err.name === 'AbortError') return
             console.error('Failed to load plot points geojson:', err)
           })
       })
       .catch((err) => {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return
-        }
-
+        if (err instanceof DOMException && err.name === 'AbortError') return
         console.error('Failed to load allotment polygons geojson:', err)
       })
 
     return () => {
       isCancelled = true
       controller.abort()
-      map.off('zoomend', syncRepresentationWithZoom)
+      map.off('zoomend', syncPolygonVisibility)
       map.off('click', handleMapBackgroundClick)
 
-      if (map.hasLayer(polygonLayerGroup)) {
-        map.removeLayer(polygonLayerGroup)
-      }
-
-      if (map.hasLayer(pointLayerGroup)) {
-        map.removeLayer(pointLayerGroup)
-      }
-
-      if (map.hasLayer(plotPointLayerGroup)) {
-        map.removeLayer(plotPointLayerGroup)
-      }
+      // Only clear layer contents — don't remove groups from the map.
+      // The cluster group must stay on the map so the next run can populate it.
+      polygonLayerGroup.clearLayers()
+      clusterGroup.clearLayers()
+      plotPointLayerGroup.clearLayers()
+      if (map.hasLayer(polygonLayerGroup)) map.removeLayer(polygonLayerGroup)
     }
   }, [plots, selectedAllotmentId, onSelectAllotment, dataBaseUrl])
 
@@ -439,13 +475,7 @@ export default function PlotMap({
         Reset view
       </button>
 
-      <div
-        ref={mapRef}
-        style={{
-          height: '100%',
-          width: '100%',
-        }}
-      />
+      <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
     </div>
   )
 }

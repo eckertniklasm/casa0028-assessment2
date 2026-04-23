@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 type ParticipateFilters = {
   opportunityType: string
   startDate: string
@@ -20,6 +22,15 @@ type Props = {
   // Participate mode
   participateFilters: ParticipateFilters
   onParticipateFilterChange: (key: string, value: string) => void
+  // Location filter (all modes)
+  postcode: string
+  onPostcodeChange: (value: string) => void
+  onPostcodeSearch: () => void
+  postcodeError: string | null
+  userCoords: { lat: number; lng: number } | null
+  onClearLocation: () => void
+  radiusKm: number
+  onRadiusChange: (value: number) => void
 }
 
 const label: React.CSSProperties = {
@@ -61,16 +72,31 @@ export default function FilterPanel({
   onDonationTypeChange,
   participateFilters,
   onParticipateFilterChange,
+  postcode,
+  onPostcodeChange,
+  onPostcodeSearch,
+  postcodeError,
+  userCoords,
+  onClearLocation,
+  radiusKm,
+  onRadiusChange,
 }: Props) {
+  const [locationMode, setLocationMode] = useState<'anywhere' | 'close'>('anywhere')
+
+  const handleLocationModeChange = (mode: 'anywhere' | 'close') => {
+    setLocationMode(mode)
+    if (mode === 'anywhere') onClearLocation()
+  }
+
   const set =
     (key: string) =>
     (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) =>
       onParticipateFilterChange(key, e.target.value)
 
   const { opportunityType } = participateFilters
-  const showDayTime   = opportunityType !== 'Volunteering'
+  const showDayTime    = opportunityType !== 'Volunteering'
   const showCommitment = opportunityType === 'Any' || opportunityType === 'Volunteering'
-  const showKids      = opportunityType === 'Any' || opportunityType === 'Workshops'
+  const showKids       = opportunityType === 'Any' || opportunityType === 'Workshops'
 
   return (
     <div
@@ -83,6 +109,100 @@ export default function FilterPanel({
       }}
     >
       <h3 style={{ margin: '0 0 4px 0' }}>Filters</h3>
+
+      {/* ── LOCATION (all modes) ── */}
+      <div style={section}>
+        <label style={label}>Where are you looking for opportunities?</label>
+        <select
+          style={sel}
+          value={locationMode}
+          onChange={(e) => handleLocationModeChange(e.target.value as 'anywhere' | 'close')}
+        >
+          <option value="anywhere">Anywhere!</option>
+          <option value="close">Close to me</option>
+        </select>
+      </div>
+
+      {locationMode === 'close' && (
+        <>
+          <div style={section}>
+            <label style={label}>Enter a postcode</label>
+            {userCoords ? (
+              <div style={{
+                background: '#f0fdf4',
+                border: '1px solid #86efac',
+                borderRadius: '6px',
+                padding: '8px 10px',
+                fontSize: '13px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <span style={{ color: '#15803d' }}>📍 {postcode.toUpperCase()}</span>
+                <button
+                  onClick={onClearLocation}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px' }}
+                >
+                  ✕ Clear
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. SW1A 1AA"
+                    style={{ ...inp, flex: 1, textTransform: 'uppercase' }}
+                    value={postcode}
+                    onChange={(e) => onPostcodeChange(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && onPostcodeSearch()}
+                  />
+                  <button
+                    onClick={onPostcodeSearch}
+                    style={{
+                      background: '#1f4d45',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '0 12px',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Search
+                  </button>
+                </div>
+                {postcodeError && (
+                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#dc2626' }}>
+                    {postcodeError}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          <div style={section}>
+            <label style={label}>
+              How far are you willing to travel? <strong>{radiusKm} km</strong>
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={15}
+              step={1}
+              value={radiusKm}
+              onChange={(e) => onRadiusChange(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#1f4d45' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+              <span>1 km</span>
+              <span>15 km</span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── PARTICIPATE ── */}
       {mode === 'participate' && (
