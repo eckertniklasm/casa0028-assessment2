@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import FilterPanel from '../components/FilterPanel'
-import DetailPanel from '../components/DetailPanel'
-import PlotList from '../components/PlotList'
 import PlotMap from '../components/PlotMap'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -452,10 +450,6 @@ export default function ExplorePage({ mode }: Props) {
     return filteredPlots.filter((p) => p.plot_id.startsWith(`${selectedAllotmentId}_`))
   }, [filteredPlots, selectedAllotmentId])
 
-  const visibleAllotmentCount = useMemo(() => {
-    return new Set(filteredPlots.map((p) => p.plot_id.split('_')[0])).size
-  }, [filteredPlots])
-
   // ── Per-allotment opportunity counts for map bubbles ──────────────────────
   const allotmentOpportunityCount = useMemo(() => {
     const countMap = new Map<string, number>()
@@ -608,35 +602,6 @@ export default function ExplorePage({ mode }: Props) {
     }))
   }, [selectedAllotmentId, selectedAllotmentPlots, cropsData, mode])
 
-  // ── Detail panel data for selected plot ───────────────────────────────────
-  const selectedCrops = selectedPlot
-    ? cropsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
-  const selectedAwayFilter = selectedPlot
-    ? awayFilterData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
-  const selectedAwayDetails = selectedPlot
-    ? awayDetailsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
-  const selectedCollabFilter = selectedPlot
-    ? collabFilterData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
-  const selectedCollabDetails = selectedPlot
-    ? collabDetailsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
-  const selectedWorkshopFilter = selectedPlot
-    ? workshopFilterData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
-  const selectedWorkshopDetails = selectedPlot
-    ? workshopDetailsData.find((r) => r.plot_id === selectedPlot.plot_id) ?? null
-    : null
-
   // ── Selection handlers ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedAllotmentId) { setSelectedPlot(null); return }
@@ -646,13 +611,6 @@ export default function ExplorePage({ mode }: Props) {
     }
   }, [selectedAllotmentId, selectedAllotmentPlots, selectedPlot])
 
-  const handleSelectPlot = (plot: Plot) => {
-    const allotmentId = plot.plot_id.split('_')[0]
-    setSelectedAllotmentId(allotmentId)
-    setSelectedPlot(plot)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
   const handleSelectAllotment = (allotmentId: string | null) => {
     if (!allotmentId) { setSelectedAllotmentId(null); setSelectedPlot(null); return }
     setSelectedAllotmentId(allotmentId)
@@ -660,51 +618,7 @@ export default function ExplorePage({ mode }: Props) {
     setSelectedPlot(next ?? null)
   }
 
-  // ── Map panel labels ───────────────────────────────────────────────────────
   const { opportunityType } = participateFilters
-
-  const browseTitle =
-    mode === 'participate'
-      ? opportunityType === 'Volunteering'
-        ? 'Browse volunteering opportunities across London'
-        : opportunityType === 'Collaboration'
-        ? 'Browse collaboration opportunities across London'
-        : opportunityType === 'Workshops'
-        ? 'Browse workshops across London'
-        : 'Browse participation opportunities across London'
-      : 'Browse food availability across London'
-
-  const browseDescription =
-    mode === 'participate'
-      ? opportunityType === 'Volunteering'
-        ? 'Use the filters to find away-help requests that match your availability and commitment.'
-        : opportunityType === 'Collaboration'
-        ? 'Use the filters to find collaboration slots that match your schedule.'
-        : opportunityType === 'Workshops'
-        ? 'Use the filters to find workshops hosted by allotment owners.'
-        : 'Use the filters to explore all participation opportunities.'
-      : 'Use the filters to explore plots offering produce and view crop information for each location.'
-
-  const summaryItems =
-    mode === 'participate'
-      ? [
-          `Opportunity: ${opportunityType}`,
-          `Experience: ${participateFilters.experience === 'Any' ? 'Any' : participateFilters.experience}`,
-          ...(opportunityType === 'Any' || opportunityType === 'Volunteering'
-            ? [`Commitment: ${participateFilters.commitment}`]
-            : []),
-          ...(opportunityType === 'Any' || opportunityType === 'Workshops'
-            ? [`Kids: ${participateFilters.kidsAllowed}`]
-            : []),
-          `Visible plots: ${filteredPlots.length}`,
-          `Visible allotments: ${visibleAllotmentCount}`,
-        ]
-      : [
-          `Crop: ${selectedCrop}`,
-          `Donation: ${selectedDonationType}`,
-          `Visible plots: ${filteredPlots.length}`,
-          `Visible allotments on map: ${visibleAllotmentCount}`,
-        ]
 
   const selectedAllotmentDisplayName = selectedAllotmentId
     ? allotmentNameById[selectedAllotmentId] ?? selectedAllotmentId
