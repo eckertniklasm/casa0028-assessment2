@@ -1919,20 +1919,29 @@ export default function ExplorePage({ mode }: Props) {
           />
         </div>
 
-        {!loading && (
-          <div className="explore-map-panel">
-            <div ref={mapSectionRef}>
-              <PlotMap
-                plots={filteredPlots}
-                allotmentOpportunityCount={allotmentOpportunityCount}
-                selectedAllotmentId={selectedAllotmentId}
-                onSelectAllotment={handleSelectAllotment}
-                userCoords={userCoords}
-                radiusKm={radiusKm}
-              />
-            </div>
+        <div className="explore-map-panel">
+          <div ref={mapSectionRef} style={{ position: 'relative', height: '100%' }}>
+            <PlotMap
+              plots={filteredPlots}
+              allotmentOpportunityCount={allotmentOpportunityCount}
+              selectedAllotmentId={selectedAllotmentId}
+              onSelectAllotment={handleSelectAllotment}
+              userCoords={userCoords}
+              radiusKm={radiusKm}
+            />
+
+            {loading && (
+              <div className="map-loading-overlay" aria-live="polite" aria-busy="true">
+                <div className="map-loading-card">
+                  <div className="map-loading-title">Map data is loading…</div>
+                  <div className="map-loading-track" role="progressbar" aria-valuetext="Loading map data">
+                    <div className="map-loading-indicator" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <div className="explore-detail-panel">
           {selectedAllotmentId ? (

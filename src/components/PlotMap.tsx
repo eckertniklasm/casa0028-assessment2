@@ -214,6 +214,8 @@ export default function PlotMap({
     const controller = new AbortController()
     let isCancelled = false
 
+    setIsMapLoading(true)
+
     // Clear layer contents but keep the groups on the map
     polygonLayerGroup.clearLayers()
     clusterGroup.clearLayers()
@@ -461,34 +463,12 @@ export default function PlotMap({
       }}
     >
       {isMapLoading && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 1001,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255, 255, 255, 0.72)',
-            backdropFilter: 'blur(1px)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#1f4d45',
-              background: 'white',
-              border: '1px solid #d1d5db',
-              borderRadius: '999px',
-              padding: '8px 12px',
-            }}
-          >
-            <span aria-hidden="true">⏳</span>
-            <span>Loading map…</span>
+        <div className="map-loading-overlay" aria-live="polite" aria-busy="true">
+          <div className="map-loading-card">
+            <div className="map-loading-title">Preparing map…</div>
+            <div className="map-loading-track" role="progressbar" aria-valuetext="Preparing map">
+              <div className="map-loading-indicator" />
+            </div>
           </div>
         </div>
       )}

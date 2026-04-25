@@ -730,6 +730,7 @@ main {
 .explore-map-card,
 .explore-map-shell {
   position: relative;
+  z-index: 0;
   min-height: 720px;
   background: #fff;
   border: 1px solid var(--line);
@@ -785,6 +786,62 @@ main {
 
 .explore-detail-panel {
   padding: 20px;
+}
+
+.map-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(1px);
+}
+
+.map-loading-card {
+  width: min(340px, calc(100% - 40px));
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 14px 14px 12px;
+}
+
+.map-loading-title {
+  color: #1f4d45;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.map-loading-track {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e5e7eb;
+  position: relative;
+}
+
+.map-loading-indicator {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1f4d45 0%, #4c8a7f 100%);
+  animation: map-load-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes map-load-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(95%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
 }
 
 [class*='map-wrapper'],

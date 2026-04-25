@@ -18,7 +18,12 @@ function App() {
   const navigate = (target: Page) => {
     setPage(target)
     setPageKey((k) => k + 1)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    const html = document.documentElement
+    const previousScrollBehavior = html.style.scrollBehavior
+    html.style.scrollBehavior = 'auto'
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    html.style.scrollBehavior = previousScrollBehavior
   }
 
   useEffect(() => {
