@@ -1,5 +1,7 @@
+type Page = 'home' | 'participate' | 'donate' | 'receive'
+
 type Props = {
-  navigate: (page: string) => void
+  navigate: (page: Page) => void
 }
 
 const eyebrow: React.CSSProperties = {
@@ -8,23 +10,32 @@ const eyebrow: React.CSSProperties = {
   fontSize: '12px',
   letterSpacing: '2px',
   textTransform: 'uppercase',
-  margin: '0 0 16px 0',
+  margin: '0 0 14px 0',
 }
 
 const heading: React.CSSProperties = {
-  fontSize: 'clamp(22px, 2.5vw, 32px)',
-  lineHeight: 1.3,
+  fontSize: 'clamp(26px, 2.8vw, 42px)',
+  lineHeight: 1.2,
   color: '#1f2937',
   fontWeight: 700,
+  margin: '0 0 18px 0',
+}
+
+const bodyText: React.CSSProperties = {
+  color: '#4b5563',
+  fontSize: '16px',
+  lineHeight: 1.75,
   margin: '0 0 28px 0',
+  maxWidth: '620px',
 }
 
 const img: React.CSSProperties = {
   width: '100%',
-  height: '420px',
+  height: '440px',
   objectFit: 'cover',
-  borderRadius: '12px',
+  borderRadius: '18px',
   display: 'block',
+  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.10)',
 }
 
 const btn: React.CSSProperties = {
@@ -32,161 +43,240 @@ const btn: React.CSSProperties = {
   color: 'white',
   border: 'none',
   padding: '14px 28px',
-  borderRadius: '8px',
+  borderRadius: '10px',
   fontSize: '13px',
   fontWeight: 700,
-  letterSpacing: '1.5px',
+  letterSpacing: '1.4px',
   cursor: 'pointer',
   textTransform: 'uppercase',
   fontFamily: 'inherit',
+  boxShadow: '0 8px 20px rgba(31, 77, 69, 0.20)',
 }
 
-const twoCol: React.CSSProperties = {
-  maxWidth: '1100px',
-  margin: '0 auto',
-  padding: '0 40px',
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '64px',
-  alignItems: 'center',
+const secondaryBtn: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  color: 'white',
+  border: '1.5px solid rgba(255,255,255,0.92)',
+  padding: '14px 28px',
+  borderRadius: '10px',
+  fontSize: '13px',
+  fontWeight: 700,
+  letterSpacing: '1.4px',
+  cursor: 'pointer',
+  textTransform: 'uppercase',
+  fontFamily: 'inherit',
+  boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+}
+
+const footerBtn: React.CSSProperties = {
+  background: 'white',
+  color: '#1f4d45',
+  border: 'none',
+  padding: '14px 28px',
+  borderRadius: '10px',
+  fontSize: '13px',
+  fontWeight: 700,
+  letterSpacing: '1.4px',
+  cursor: 'pointer',
+  textTransform: 'uppercase',
+  fontFamily: 'inherit',
+  boxShadow: '0 10px 24px rgba(0,0,0,0.16)',
 }
 
 export default function HomePage({ navigate }: Props) {
   const base = import.meta.env.BASE_URL
 
   return (
-    <div style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-
-      {/* Hero */}
+    <div className="home-page-shell">
       <section
+        className="home-hero"
         style={{
-          position: 'relative',
-          height: '82vh',
-          minHeight: '480px',
           backgroundImage: `url(${base}images/main_image.jpg)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'rgba(10, 30, 20, 0.55)',
-          }}
-        />
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            padding: '0 32px',
-            maxWidth: '820px',
-          }}
-        >
-          <h1
-            style={{
-              color: 'white',
-              fontSize: 'clamp(28px, 4.5vw, 54px)',
-              lineHeight: 1.15,
-              fontWeight: 700,
-              margin: 0,
-            }}
-          >
-            Making London's Allotments a Shared Space and Resource for Everyone
-          </h1>
+        <div className="home-hero-overlay" />
+        <div className="home-hero-inner">
+          <div className="home-hero-content">
+            <p className="home-hero-kicker">
+              Community food • local participation • shared resources
+            </p>
+
+            <h1 className="home-hero-title">
+              Connect London’s allotments, volunteers, and local food sharing
+            </h1>
+
+            <p className="home-hero-subtitle">
+              PlotShare is a spatial platform for discovering allotments,
+              sharing surplus produce, finding nearby food support, and taking
+              part in community growing opportunities across London.
+            </p>
+
+            <div className="home-hero-actions">
+              <button
+                className="home-cta-btn home-cta-btn--primary"
+                style={btn}
+                onClick={() => navigate('participate')}
+              >
+                Participate
+              </button>
+              <button
+                className="home-cta-btn home-cta-btn--secondary"
+                style={secondaryBtn}
+                onClick={() => navigate('donate')}
+              >
+                Donate Food
+              </button>
+              <button
+                className="home-cta-btn home-cta-btn--secondary"
+                style={secondaryBtn}
+                onClick={() => navigate('receive')}
+              >
+                Receive Food
+              </button>
+            </div>
+
+            <div className="home-summary-grid">
+              <div className="home-summary-card">
+                <div className="home-summary-value">30,000+</div>
+                <div className="home-summary-label">
+                  residents on London allotment waiting lists
+                </div>
+              </div>
+
+              <div className="home-summary-card">
+                <div className="home-summary-value">3</div>
+                <div className="home-summary-label">
+                  ways to engage: participate, donate, or receive food
+                </div>
+              </div>
+
+              <div className="home-summary-card">
+                <div className="home-summary-value">Local</div>
+                <div className="home-summary-label">
+                  place-based discovery through the map platform
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Section 1 – Participate */}
-      <section style={{ padding: '88px 0', background: 'white' }}>
-        <div style={twoCol}>
+      <section className="home-section home-section--white">
+        <div className="home-two-col">
           <img
             src={`${base}images/workshop.jpg`}
-            alt="Allotment workshop"
+            alt="People participating in an allotment workshop"
             style={img}
           />
           <div>
             <p style={eyebrow}>Participate</p>
             <h2 style={heading}>
-              Over 30,000 residents are on the waiting list to get one of
-              London's Allotment plots, but there are other ways you can get
-              involved!
+              There are many ways to get involved in London’s allotment
+              community, even without your own plot
             </h2>
-            <ul
-              style={{
-                listStyle: 'none',
-                padding: 0,
-                margin: '0 0 36px 0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-              }}
-            >
+            <p style={bodyText}>
+              With long waiting lists across the city, participation in food
+              growing can still happen through collaboration, temporary plot
+              support, and community workshops.
+            </p>
+            <ul className="home-benefit-list">
               {[
-                'Looking for an easy way to participate in community food growing?',
-                "Wanting to look after someone's allotment while they are away?",
-                'Looking to take part in workshops hosted by allotment plot owners?',
+                'Join community food growing opportunities near you',
+                "Help care for someone’s allotment while they are away",
+                'Take part in workshops hosted by local plot owners',
               ].map((q) => (
-                <li
-                  key={q}
-                  style={{ color: '#374151', lineHeight: 1.6, fontSize: '15px' }}
-                >
-                  {q}
+                <li key={q}>
+                  <span className="home-check">✓</span>
+                  <span>{q}</span>
                 </li>
               ))}
             </ul>
-            <button style={btn} onClick={() => navigate('participate')}>
+            <button
+              className="home-cta-btn home-cta-btn--primary"
+              style={btn}
+              onClick={() => navigate('participate')}
+            >
               Participate →
             </button>
           </div>
         </div>
       </section>
 
-      {/* Section 2 – Donate Food */}
-      <section style={{ padding: '88px 0', background: '#f0f5f1' }}>
-        <div style={twoCol}>
+      <section className="home-section home-section--tint">
+        <div className="home-two-col">
           <div>
             <p style={eyebrow}>Donate Food</p>
             <h2 style={heading}>
-              Are you an allotment owner looking for close-by food banks to
-              donate excess food?
+              Do you have surplus produce from your allotment to donate?
             </h2>
-            <button style={btn} onClick={() => navigate('donate')}>
+            <p style={bodyText}>
+              Find nearby food banks and local sharing opportunities for excess
+              produce, and make it easier for fresh food to stay in the local
+              community rather than going to waste.
+            </p>
+            <button
+              className="home-cta-btn home-cta-btn--primary"
+              style={btn}
+              onClick={() => navigate('donate')}
+            >
               Donate Food →
             </button>
           </div>
           <img
             src={`${base}images/excess_food.webp`}
-            alt="Excess allotment food"
+            alt="Fresh produce available for donation"
             style={img}
           />
         </div>
       </section>
 
-      {/* Section 3 – Receive Food */}
-      <section style={{ padding: '88px 0', background: 'white' }}>
-        <div style={twoCol}>
+      <section className="home-section home-section--white">
+        <div className="home-two-col">
           <img
-            src={`${base}images/excess_food.webp`}
-            alt="Fresh allotment produce"
+            src={`${base}images/volunteering.jpg`}
+            alt="Local community food sharing"
             style={img}
           />
           <div>
             <p style={eyebrow}>Receive Food</p>
             <h2 style={heading}>
-              Are you looking for excess food from allotments?
+              Looking for available excess food from allotments?
             </h2>
-            <button style={btn} onClick={() => navigate('receive')}>
+            <p style={bodyText}>
+              Browse nearby produce-sharing opportunities and identify local
+              routes for receiving fresh food from the allotment network.
+            </p>
+            <button
+              className="home-cta-btn home-cta-btn--primary"
+              style={btn}
+              onClick={() => navigate('receive')}
+            >
               Receive Food →
             </button>
           </div>
         </div>
       </section>
 
+      <section className="home-final-cta">
+        <div className="home-final-cta-inner">
+          <p className="home-final-cta-kicker">Explore the platform</p>
+          <h2 className="home-final-cta-title">
+            Join a more connected allotment community across London
+          </h2>
+          <p className="home-final-cta-text">
+            Whether you want to participate, donate surplus produce, or receive
+            food, PlotShare helps connect local opportunities through a shared
+            spatial platform.
+          </p>
+          <button
+            className="home-cta-btn home-cta-btn--footer"
+            style={footerBtn}
+            onClick={() => navigate('participate')}
+          >
+            Get Started
+          </button>
+        </div>
+      </section>
     </div>
   )
 }

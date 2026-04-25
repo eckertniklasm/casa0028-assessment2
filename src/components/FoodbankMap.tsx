@@ -65,15 +65,55 @@ export default function FoodbankMap({
   const allBoundsRef = useRef<L.LatLngBounds | null>(null)
 
   useEffect(() => {
+    if (!mapRef.current || leafletMapRef.current) return
+
+    const map = L.map(mapRef.current).setView([51.5074, -0.1278], 10)
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '',
+    }).addTo(map)
+
+    leafletMapRef.current = map
+    markerLayerRef.current = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      spiderfyOnMaxZoom: false,
+      maxClusterRadius: 42,
+      iconCreateFunction: (cluster: any) =>
+        L.divIcon({
+          html: `<div class="foodbank-cluster">${cluster.getChildCount()}</div>`,
+          className: '',
+          iconSize: [44, 44],
+        }),
+    }) as L.MarkerClusterGroup
+
+    locationLayerRef.current = L.layerGroup().addTo(map)
+    map.addLayer(markerLayerRef.current)
+
+    const timer = setTimeout(() => {
+      map.invalidateSize()
+    }, 180)
+
+    return () => {
+      clearTimeout(timer)
+      map.remove()
+      leafletMapRef.current = null
+      markerLayerRef.current = null
+      locationLayerRef.current = null
+      hasSetInitialBoundsRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     const map = leafletMapRef.current
     if (!map) return
 
-    const id = setTimeout(() => {
+    const timer = setTimeout(() => {
       map.invalidateSize()
-    }, 50)
+    }, 140)
 
-    return () => clearTimeout(id)
-  }, [selectedFoodbankId])
+    return () => clearTimeout(timer)
+  }, [selectedFoodbankId, foodbanks.length])
 
   useEffect(() => {
     const map = leafletMapRef.current
@@ -111,38 +151,6 @@ export default function FoodbankMap({
   }
 
   useEffect(() => {
-    if (!mapRef.current || leafletMapRef.current) return
-
-    const map = L.map(mapRef.current).setView([51.5074, -0.1278], 10)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
-
-    leafletMapRef.current = map
-    markerLayerRef.current = (L as any).markerClusterGroup({
-      showCoverageOnHover: false,
-      zoomToBoundsOnClick: true,
-      spiderfyOnMaxZoom: false,
-      maxClusterRadius: 42,
-      iconCreateFunction: (cluster: any) =>
-        L.divIcon({
-          html: `<div class="foodbank-cluster">${cluster.getChildCount()}</div>`,
-          className: '',
-          iconSize: [44, 44],
-        }),
-    }) as L.MarkerClusterGroup
-
-    locationLayerRef.current = L.layerGroup().addTo(map)
-    map.addLayer(markerLayerRef.current)
-
-    return () => {
-      map.remove()
-      leafletMapRef.current = null
-      markerLayerRef.current = null
-      locationLayerRef.current = null
-      hasSetInitialBoundsRef.current = false
-    }
-  }, [])
-
-  useEffect(() => {
     const map = leafletMapRef.current
     const markerLayer = markerLayerRef.current
     if (!map || !markerLayer) return
@@ -162,10 +170,19 @@ export default function FoodbankMap({
       const marker = L.marker([lat, lng], { icon: makeIcon(isSelected) })
 
       const name = escapeHtml(foodbank.properties?.name ?? 'Foodbank')
-      const address = escapeHtml((foodbank.properties?.address ?? '').trim()).replaceAll('\n', '<br />')
-      const network = foodbank.properties?.network ? `<div><strong>Network:</strong> ${escapeHtml(foodbank.properties.network)}</div>` : ''
-      const phone = foodbank.properties?.telephone ? `<div><strong>Phone:</strong> ${escapeHtml(foodbank.properties.telephone)}</div>` : ''
-      const email = foodbank.properties?.email ? `<div><strong>Email:</strong> ${escapeHtml(foodbank.properties.email)}</div>` : ''
+      const address = escapeHtml((foodbank.properties?.address ?? '').trim()).replaceAll(
+        '\n',
+        '<br />'
+      )
+      const network = foodbank.properties?.network
+        ? `<div><strong>Network:</strong> ${escapeHtml(foodbank.properties.network)}</div>`
+        : ''
+      const phone = foodbank.properties?.telephone
+        ? `<div><strong>Phone:</strong> ${escapeHtml(foodbank.properties.telephone)}</div>`
+        : ''
+      const email = foodbank.properties?.email
+        ? `<div><strong>Email:</strong> ${escapeHtml(foodbank.properties.email)}</div>`
+        : ''
 
       marker.bindPopup(`
         <div style="min-width: 180px; line-height: 1.45;">
@@ -194,9 +211,13 @@ export default function FoodbankMap({
 
     map.on('click', handleBackgroundClick)
 
-    if (bounds.isValid() && !hasSetInitialBoundsRef.current) {
-      map.fitBounds(bounds, { padding: [24, 24] })
-      hasSetInitialBoundsRef.current = true
+    if (bounds.isValid()) {
+      if (!hasSetInitialBoundsRef.current) {
+        map.fitBounds(bounds, { padding: [24, 24] })
+        hasSetInitialBoundsRef.current = true
+      } else {
+        setTimeout(() => map.invalidateSize(), 80)
+      }
     }
 
     return () => {
@@ -209,7 +230,8 @@ export default function FoodbankMap({
       style={{
         position: 'relative',
         height: '100%',
-        borderRadius: '12px',
+        minHeight: '100%',
+        borderRadius: '14px',
         overflow: 'hidden',
       }}
     >
@@ -222,14 +244,17 @@ export default function FoodbankMap({
           zIndex: 1000,
           background: 'white',
           border: '1px solid #d1d5db',
-          borderRadius: '8px',
-          padding: '6px 10px',
+          borderRadius: '10px',
+          padding: '8px 12px',
           fontSize: '13px',
+          fontWeight: 700,
           cursor: 'pointer',
+          boxShadow: '0 8px 18px rgba(15, 23, 42, 0.08)',
         }}
       >
         Reset view
       </button>
+
       <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
     </div>
   )
