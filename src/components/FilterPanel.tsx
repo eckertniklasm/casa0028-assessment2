@@ -13,16 +13,13 @@ type ParticipateFilters = {
 
 type Props = {
   mode: string
-  // Food mode
   cropOptions: string[]
   selectedCrop: string
   onCropChange: (value: string) => void
   selectedDonationType: string
   onDonationTypeChange: (value: string) => void
-  // Participate mode
   participateFilters: ParticipateFilters
   onParticipateFilterChange: (key: string, value: string) => void
-  // Location filter (all modes)
   postcode: string
   onPostcodeChange: (value: string) => void
   onPostcodeSearch: () => void
@@ -33,35 +30,87 @@ type Props = {
   onRadiusChange: (value: number) => void
 }
 
+const panelStyle: React.CSSProperties = {
+  background: 'white',
+  padding: '18px',
+  borderRadius: '16px',
+  border: '1px solid #e5e7eb',
+  boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)',
+  overflowY: 'auto',
+}
+
+const titleStyle: React.CSSProperties = {
+  margin: '0 0 4px 0',
+  fontSize: '18px',
+  fontWeight: 700,
+  color: '#1f2937',
+}
+
+const subtitleStyle: React.CSSProperties = {
+  margin: '0 0 18px 0',
+  fontSize: '13px',
+  color: '#6b7280',
+  lineHeight: 1.55,
+}
+
+const groupTitle: React.CSSProperties = {
+  margin: '0 0 10px 0',
+  fontSize: '12px',
+  fontWeight: 800,
+  letterSpacing: '1px',
+  textTransform: 'uppercase',
+  color: '#6b7280',
+}
+
 const label: React.CSSProperties = {
   display: 'block',
-  fontWeight: 600,
+  fontWeight: 700,
   fontSize: '13px',
-  marginBottom: '6px',
+  marginBottom: '7px',
   color: '#374151',
 }
 
 const sel: React.CSSProperties = {
   width: '100%',
-  padding: '8px',
-  borderRadius: '6px',
+  padding: '10px 12px',
+  borderRadius: '10px',
   border: '1px solid #d1d5db',
   fontSize: '13px',
   background: 'white',
   cursor: 'pointer',
   fontFamily: 'inherit',
+  color: '#111827',
 }
 
 const inp: React.CSSProperties = {
   width: '100%',
-  padding: '8px',
-  borderRadius: '6px',
+  padding: '10px 12px',
+  borderRadius: '10px',
   border: '1px solid #d1d5db',
   fontSize: '13px',
   fontFamily: 'inherit',
+  color: '#111827',
 }
 
-const section: React.CSSProperties = { marginTop: '18px' }
+const section: React.CSSProperties = { marginTop: '16px' }
+
+const divider: React.CSSProperties = {
+  height: '1px',
+  background: '#eef2f7',
+  margin: '18px 0 6px',
+}
+
+const helperPill: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '5px 10px',
+  borderRadius: '999px',
+  background: '#ecfdf5',
+  color: '#166534',
+  fontSize: '12px',
+  fontWeight: 700,
+  marginBottom: '12px',
+}
 
 export default function FilterPanel({
   mode,
@@ -94,31 +143,40 @@ export default function FilterPanel({
       onParticipateFilterChange(key, e.target.value)
 
   const { opportunityType } = participateFilters
-  const showDayTime    = opportunityType !== 'Volunteering'
+  const showDayTime = opportunityType !== 'Volunteering'
   const showCommitment = opportunityType === 'Any' || opportunityType === 'Volunteering'
-  const showKids       = opportunityType === 'Any' || opportunityType === 'Workshops'
+  const showKids = opportunityType === 'Any' || opportunityType === 'Workshops'
+
+  const modeLabel =
+    mode === 'participate'
+      ? 'Participate'
+      : mode === 'receive'
+      ? 'Receive food'
+      : 'Donate food'
+
+  const modeHelper =
+    mode === 'participate'
+      ? 'Find opportunities by area, availability, and experience.'
+      : mode === 'receive'
+      ? 'Refine results by crop, donation type, and distance.'
+      : 'Use the location filter to find nearby foodbanks.'
 
   return (
-    <div
-      style={{
-        background: 'white',
-        padding: '16px',
-        borderRadius: '12px',
-        border: '1px solid #ddd',
-        overflowY: 'auto',
-      }}
-    >
-      <h3 style={{ margin: '0 0 4px 0' }}>Filters</h3>
+    <div style={panelStyle}>
+      <div style={helperPill}>{modeLabel}</div>
+      <h3 style={titleStyle}>Refine results</h3>
+      <p style={subtitleStyle}>{modeHelper}</p>
 
-      {/* ── LOCATION (all modes) ── */}
+      <div style={groupTitle}>Location</div>
+
       <div style={section}>
-        <label style={label}>Where are you looking for opportunities?</label>
+        <label style={label}>Search area</label>
         <select
           style={sel}
           value={locationMode}
           onChange={(e) => handleLocationModeChange(e.target.value as 'anywhere' | 'close')}
         >
-          <option value="anywhere">Anywhere!</option>
+          <option value="anywhere">Anywhere</option>
           <option value="close">Close to me</option>
         </select>
       </div>
@@ -126,29 +184,41 @@ export default function FilterPanel({
       {locationMode === 'close' && (
         <>
           <div style={section}>
-            <label style={label}>Enter a postcode</label>
+            <label style={label}>Postcode</label>
             {userCoords ? (
-              <div style={{
-                background: '#f0fdf4',
-                border: '1px solid #86efac',
-                borderRadius: '6px',
-                padding: '8px 10px',
-                fontSize: '13px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <span style={{ color: '#15803d' }}>📍 {postcode.toUpperCase()}</span>
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '1px solid #86efac',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  fontSize: '13px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <span style={{ color: '#15803d', fontWeight: 600 }}>
+                  📍 {postcode.toUpperCase()}
+                </span>
                 <button
                   onClick={onClearLocation}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px' }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#6b7280',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                  }}
                 >
-                  ✕ Clear
+                  Clear
                 </button>
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
                     placeholder="e.g. SW1A 1AA"
@@ -163,9 +233,10 @@ export default function FilterPanel({
                       background: '#1f4d45',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '6px',
-                      padding: '0 12px',
+                      borderRadius: '10px',
+                      padding: '0 14px',
                       fontSize: '13px',
+                      fontWeight: 700,
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                       whiteSpace: 'nowrap',
@@ -175,7 +246,7 @@ export default function FilterPanel({
                   </button>
                 </div>
                 {postcodeError && (
-                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#dc2626' }}>
+                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#dc2626' }}>
                     {postcodeError}
                   </p>
                 )}
@@ -185,7 +256,7 @@ export default function FilterPanel({
 
           <div style={section}>
             <label style={label}>
-              How far are you willing to travel? <strong>{radiusKm} km</strong>
+              Travel distance <strong>{radiusKm} km</strong>
             </label>
             <input
               type="range"
@@ -196,7 +267,15 @@ export default function FilterPanel({
               onChange={(e) => onRadiusChange(Number(e.target.value))}
               style={{ width: '100%', accentColor: '#1f4d45' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                color: '#9ca3af',
+                marginTop: '4px',
+              }}
+            >
               <span>1 km</span>
               <span>15 km</span>
             </div>
@@ -204,11 +283,13 @@ export default function FilterPanel({
         </>
       )}
 
-      {/* ── PARTICIPATE ── */}
       {mode === 'participate' && (
         <>
+          <div style={divider} />
+          <div style={groupTitle}>Opportunity</div>
+
           <div style={section}>
-            <label style={label}>What opportunity are you looking for?</label>
+            <label style={label}>Type</label>
             <select style={sel} value={opportunityType} onChange={set('opportunityType')}>
               <option value="Any">Any</option>
               <option value="Volunteering">Volunteering</option>
@@ -218,10 +299,10 @@ export default function FilterPanel({
           </div>
 
           <div style={section}>
-            <label style={label}>What dates are you available?</label>
+            <label style={label}>Available dates</label>
             <input
               type="date"
-              style={{ ...inp, marginBottom: '6px' }}
+              style={{ ...inp, marginBottom: '8px' }}
               value={participateFilters.startDate}
               onChange={set('startDate')}
             />
@@ -235,11 +316,21 @@ export default function FilterPanel({
 
           {showDayTime && (
             <div style={section}>
-              <label style={label}>What days are you available?</label>
+              <label style={label}>Available day</label>
               <select style={sel} value={participateFilters.day} onChange={set('day')}>
                 <option value="Any">Any</option>
-                {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d) => (
-                  <option key={d} value={d}>{d}</option>
+                {[
+                  'Monday',
+                  'Tuesday',
+                  'Wednesday',
+                  'Thursday',
+                  'Friday',
+                  'Saturday',
+                  'Sunday',
+                ].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
                 ))}
               </select>
             </div>
@@ -247,7 +338,7 @@ export default function FilterPanel({
 
           {showDayTime && (
             <div style={section}>
-              <label style={label}>What times are you available?</label>
+              <label style={label}>Available time</label>
               <select style={sel} value={participateFilters.time} onChange={set('time')}>
                 <option value="Any">Anytime</option>
                 <option value="Morning">Morning (6AM – 11AM)</option>
@@ -259,8 +350,12 @@ export default function FilterPanel({
           )}
 
           <div style={section}>
-            <label style={label}>What is your experience level?</label>
-            <select style={sel} value={participateFilters.experience} onChange={set('experience')}>
+            <label style={label}>Experience level</label>
+            <select
+              style={sel}
+              value={participateFilters.experience}
+              onChange={set('experience')}
+            >
               <option value="Any">Any</option>
               <option value="1">Completely new</option>
               <option value="2">Beginner</option>
@@ -271,8 +366,12 @@ export default function FilterPanel({
 
           {showCommitment && (
             <div style={section}>
-              <label style={label}>How much time can you commit?</label>
-              <select style={sel} value={participateFilters.commitment} onChange={set('commitment')}>
+              <label style={label}>Commitment</label>
+              <select
+                style={sel}
+                value={participateFilters.commitment}
+                onChange={set('commitment')}
+              >
                 <option value="Any">Any</option>
                 <option value="1">Light</option>
                 <option value="2">Moderate</option>
@@ -284,8 +383,12 @@ export default function FilterPanel({
 
           {showKids && (
             <div style={section}>
-              <label style={label}>Kids welcome?</label>
-              <select style={sel} value={participateFilters.kidsAllowed} onChange={set('kidsAllowed')}>
+              <label style={label}>Kids welcome</label>
+              <select
+                style={sel}
+                value={participateFilters.kidsAllowed}
+                onChange={set('kidsAllowed')}
+              >
                 <option value="Any">Any</option>
                 <option value="Yes">Yes – kids welcome</option>
                 <option value="No">No – adults only</option>
@@ -295,9 +398,11 @@ export default function FilterPanel({
         </>
       )}
 
-      {/* ── FOOD (receive only) ── */}
       {mode === 'receive' && (
         <>
+          <div style={divider} />
+          <div style={groupTitle}>Produce</div>
+
           <div style={section}>
             <label style={label}>Crop type</label>
             <select
@@ -307,7 +412,9 @@ export default function FilterPanel({
             >
               <option value="All">All</option>
               {cropOptions.map((crop) => (
-                <option key={crop} value={crop}>{crop}</option>
+                <option key={crop} value={crop}>
+                  {crop}
+                </option>
               ))}
             </select>
           </div>
@@ -328,9 +435,12 @@ export default function FilterPanel({
       )}
 
       {mode === 'donate' && (
-        <div style={{ ...section, fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
-          Browse nearby foodbanks and use the location filter to narrow the map.
-        </div>
+        <>
+          <div style={divider} />
+          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginTop: '14px' }}>
+            Browse nearby foodbanks and use the location filter to narrow the map.
+          </div>
+        </>
       )}
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import HomePage from './pages/HomePage'
 import ExplorePage from './pages/ExplorePage'
 
@@ -15,37 +15,66 @@ function App() {
   const [page, setPage] = useState<Page>('home')
   const [pageKey, setPageKey] = useState(0)
 
-  const navigate = (target: string) => {
-    setPage(target as Page)
+  const navigate = (target: Page) => {
+    setPage(target)
     setPageKey((k) => k + 1)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    document.title =
+      page === 'home'
+        ? 'PlotShare'
+        : page === 'participate'
+        ? 'PlotShare | Participate'
+        : page === 'donate'
+        ? 'PlotShare | Donate Food'
+        : 'PlotShare | Receive Food'
+  }, [page])
 
   return (
     <div className="app-shell">
-      <nav className="topbar">
-        <span className="brand" onClick={() => navigate('home')}>
-          PlotShare
-        </span>
-        <div className="nav">
-          {NAV_LINKS.map(({ label, page: target }) => (
-            <button
-              key={target}
-              className={`nav-link${page === target ? ' active' : ''}`}
-              onClick={() => navigate(target)}
-            >
-              {label}
-            </button>
-          ))}
+      <nav className="topbar" aria-label="Main navigation">
+        <div className="topbar-inner">
+          <button
+            type="button"
+            className="brand"
+            onClick={() => navigate('home')}
+            aria-label="Go to homepage"
+          >
+            PlotShare
+          </button>
+
+          <div className="nav" aria-label="Site sections">
+            {NAV_LINKS.map(({ label, page: target }) => {
+              const isActive = page === target
+
+              return (
+                <button
+                  key={target}
+                  type="button"
+                  className={`nav-link${isActive ? ' active' : ''}`}
+                  onClick={() => navigate(target)}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <span className="nav-link-text">{label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </nav>
 
-      {page === 'home' && <HomePage key={pageKey} navigate={navigate} />}
-      {page !== 'home' && (
-        <ExplorePage
-          key={pageKey}
-          mode={page as 'participate' | 'donate' | 'receive'}
-        />
-      )}
+      <main>
+        {page === 'home' ? (
+          <HomePage key={pageKey} navigate={navigate} />
+        ) : (
+          <ExplorePage
+            key={pageKey}
+            mode={page as Exclude<Page, 'home'>}
+          />
+        )}
+      </main>
     </div>
   )
 }
