@@ -44,3 +44,8 @@ The plot-level attributes used in the app — such as owner details, crop lists,
 - This project is a prototype and includes simulated plot-level content.
 - The real-world spatial layers are used together with generated plot data to support the interactive experience.
 
+## Collaborators
+@Annalise-lii
+@emilydugmore
+@eckertniklasm
+@jacob-echele
