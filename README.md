@@ -1,75 +1,46 @@
-# React + TypeScript + Vite
+# PlotShare
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PlotShare is a web-based spatial prototype for connecting London allotment plots with three different user groups:
 
-Currently, two official plugins are available:
+- allotment owners who want to participate in community growing,
+- volunteers who want to help while owners are away or collaborate on plots,
+- and people or organisations looking to receive surplus food.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The website is built around a map-led exploration workflow. Users can browse allotment plots, filter opportunities by crop, availability, and type of activity, and switch between three main journeys:
 
-## React Compiler
+- Participate: find plots offering away periods, collaboration slots, or workshops.
+- Donate Food: identify plots willing to share surplus produce with food banks or other local recipients.
+- Receive Food: browse opportunities to receive available food from allotment plots.
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
 
-Note: This will impact Vite dev & build performances.
+## Data sources
 
-## Expanding the ESLint configuration
+### Allotment locations
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+London allotment location data was sourced from the London Datastore:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+https://data.london.gov.uk/dataset/allotment-locations-248xz/
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Food bank locations
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Food bank location data was sourced from Give Food:
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+https://github.com/givefood/data
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Plot-level data
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The plot-level attributes used in the app — such as owner details, crop lists, availability periods, collaboration slots, workshops, and food donation preferences — were generated using an LLM-driven workflow documented in the creation_dataset folder. This generated data is combined with the spatial allotment layer in the app.
+
+## Repository structure
+
+- src/: React application source code
+- src/pages/: main user-facing pages
+- src/components/: map, filter, and detail components
+- public/data/: static geojson and JSON data used by the app
+- creation_dataset/: data creation and cleaning workflow, including the plot-generation process
+
+## Notes
+
+- This project is a prototype and includes simulated plot-level content.
+- The real-world spatial layers are used together with generated plot data to support the interactive experience.
+
